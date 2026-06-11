@@ -1,0 +1,11 @@
+rules_version = '2';
+
+// Reglas abiertas para DTFly (sin Firebase Auth en la app actual).
+// La validación de PIN y roles se hace en el cliente al registrarse.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+}

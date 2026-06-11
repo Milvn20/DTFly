@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "366265270631",
+    "project_id": "dtfly-d8997",
+    "storage_bucket": "dtfly-d8997.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:366265270631:android:3283c136f02f0a73132fc2",
+        "android_client_info": {
+          "package_name": "com.example.flutter_application_1"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDI6gGhe5S1z4Lk0sKsFwS8KvrxPgUfeco"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

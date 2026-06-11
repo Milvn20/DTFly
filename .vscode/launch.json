@@ -1,0 +1,24 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "DTFly Web (Chrome - desarrollo)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": ["--web-port=8080"]
+    },
+    {
+      "name": "DTFly Web (Chrome - vista previa entrenador)",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/main.dart",
+      "deviceId": "chrome",
+      "args": [
+        "--web-port=8080",
+        "--dart-define=DTFLY_COACH_PREVIEW=true"
+      ]
+    }
+  ]
+}

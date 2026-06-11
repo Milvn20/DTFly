@@ -1,0 +1,86 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "actividad_utilero",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "utilero_id", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificaciones_utilero",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "utilero_id", "order": "ASCENDING" },
+        { "fieldPath": "fecha", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificaciones_utilero",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "utilero_id", "order": "ASCENDING" },
+        { "fieldPath": "leida", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notificaciones_utilero",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "utilero_id", "order": "ASCENDING" },
+        { "fieldPath": "tipo", "order": "ASCENDING" },
+        { "fieldPath": "leida", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "email", "order": "ASCENDING" },
+        { "fieldPath": "password", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rol", "order": "ASCENDING" },
+        { "fieldPath": "deporte", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "usuarios",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "rol", "order": "ASCENDING" },
+        { "fieldPath": "categoriaDeportiva", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "entrenamientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "entrenadorEmail", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "entrenamientos",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "codigoUnion", "order": "ASCENDING" },
+        { "fieldPath": "estado", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "prestamos_inventario",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "devuelto", "order": "ASCENDING" },
+        { "fieldPath": "prestadoEn", "order": "DESCENDING" }
+      ]
+    }
+  ],
+  "fieldOverrides": []
+}
