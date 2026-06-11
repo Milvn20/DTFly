@@ -214,7 +214,7 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
               ),
               const SizedBox(height: 12),
               DtflyMockupPrimaryButton(
-                texto: '+ Agregar material (escaleras, otros…)',
+                texto: '+ Agregar material (elige «Más» para foto propia)',
                 onTap: () => UtileroAgregarMaterialDialog.mostrar(
                   context,
                   usuarioId: widget.usuarioId,

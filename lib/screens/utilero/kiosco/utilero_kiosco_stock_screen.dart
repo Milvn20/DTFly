@@ -7,6 +7,7 @@ import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_mockup_dashboard.dart';
 import 'package:flutter_application_1/widgets/utilero_agregar_material_dialog.dart';
+import 'package:flutter_application_1/widgets/utilero_ingresar_stock_dialog.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
 
 /// Pestaña Inventario — grid compacto de stock por categoría.
@@ -61,7 +62,7 @@ class UtileroKioscoStockTab extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Puedes agregar foto al crear un material nuevo',
+            'Toca un material para agregar stock · «Más» para foto propia',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 10, color: DtflyTheme.textSecondary),
           ),
@@ -105,12 +106,14 @@ class UtileroKioscoStockTab extends StatelessWidget {
                         spacing: spacing,
                         runSpacing: spacing,
                         children: [
-                          for (final cat in UtileroMaterialCat.todas)
+                          for (final cat in UtileroMaterialCat.todas
+                              .where((c) => c.id != 'mas'))
                             SizedBox(
                               width: itemWidth,
                               height: itemHeight,
                               child: _StockCardCompacta(
                                 cat: cat,
+                                usuarioId: usuarioId,
                                 disponible: stock[cat.id] ?? 0,
                                 total: total[cat.id] ?? 0,
                                 stockBajo: (stock[cat.id] ?? 0) <=
@@ -137,7 +140,10 @@ class UtileroKioscoStockTab extends StatelessWidget {
                     ...conFoto.map(
                       (m) => Padding(
                         padding: const EdgeInsets.only(bottom: 5),
-                        child: _MaterialConFotoFila(material: m),
+                        child: _MaterialConFotoFila(
+                          material: m,
+                          usuarioId: usuarioId,
+                        ),
                       ),
                     ),
                   ],
@@ -154,6 +160,7 @@ class UtileroKioscoStockTab extends StatelessWidget {
 class _StockCardCompacta extends StatelessWidget {
   const _StockCardCompacta({
     required this.cat,
+    required this.usuarioId,
     required this.disponible,
     required this.total,
     required this.stockBajo,
@@ -161,17 +168,34 @@ class _StockCardCompacta extends StatelessWidget {
   });
 
   final UtileroMaterialCat cat;
+  final String usuarioId;
   final int disponible;
   final int total;
   final bool stockBajo;
   final String? imagenUrl;
 
+  void _abrirAgregarStock(BuildContext context) {
+    UtileroIngresarStockDialog.mostrarPorCategoria(
+      context,
+      categoria: cat,
+      usuarioId: usuarioId,
+      disponible: disponible,
+      total: total,
+      imagenUrl: imagenUrl,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: () => _abrirAgregarStock(context),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: stockBajo ? const Color(0xFFC62828) : DtflyTheme.borderSubtle,
@@ -246,26 +270,46 @@ class _StockCardCompacta extends StatelessWidget {
               ],
             ),
           ),
+          const Icon(
+            Icons.add_circle_outline,
+            size: 14,
+            color: DtflyTheme.textSecondary,
+          ),
         ],
+      ),
+        ),
       ),
     );
   }
 }
 
 class _MaterialConFotoFila extends StatelessWidget {
-  const _MaterialConFotoFila({required this.material});
+  const _MaterialConFotoFila({
+    required this.material,
+    required this.usuarioId,
+  });
 
   final MaterialInventario material;
+  final String usuarioId;
 
   @override
   Widget build(BuildContext context) {
     final cat = UtileroMaterialCat.resolver(
       '${material.categoria} ${material.nombre}',
     );
-    return Container(
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      child: InkWell(
+        onTap: () => UtileroIngresarStockDialog.mostrarPorMaterial(
+          context,
+          material: material,
+          usuarioId: usuarioId,
+        ),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
-        color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: DtflyTheme.borderSubtle, width: 0.8),
       ),
@@ -316,7 +360,14 @@ class _MaterialConFotoFila extends StatelessWidget {
               ),
             ],
           ),
+          const Icon(
+            Icons.add_circle_outline,
+            size: 16,
+            color: DtflyTheme.textSecondary,
+          ),
         ],
+      ),
+        ),
       ),
     );
   }

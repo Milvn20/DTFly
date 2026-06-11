@@ -78,11 +78,11 @@ class UtileroMaterialCat {
       color: Color(0xFF2B2D42),
     ),
     UtileroMaterialCat(
-      id: 'otros',
-      nombre: 'Otros',
+      id: 'mas',
+      nombre: 'Más',
       imagenAsset: 'assets/images/materiales/otros.png',
       etiquetaFirestore: 'General',
-      icono: Icons.inventory_2_outlined,
+      icono: Icons.add_photo_alternate_outlined,
       color: Color(0xFF6C757D),
     ),
   ];
@@ -112,7 +112,7 @@ class UtileroMaterialCat {
     if (t.contains('escalera') || t.contains('coordina')) {
       return todas.firstWhere((c) => c.id == 'escaleras');
     }
-    return todas.firstWhere((c) => c.id == 'otros');
+    return todas.firstWhere((c) => c.id == 'mas');
   }
 }
 
