@@ -4,6 +4,7 @@ import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_flujo_screen.dart';
 import 'package:flutter_application_1/widgets/dtfly_mockup_dashboard.dart';
 import 'package:flutter_application_1/widgets/utilero_agregar_material_dialog.dart';
+import 'package:flutter_application_1/widgets/utilero_cambiar_seleccion_button.dart';
 
 /// Pestaña Préstamos — mockup con botón rojo principal.
 class UtileroKioscoPrestamosTab extends StatelessWidget {
@@ -11,10 +12,14 @@ class UtileroKioscoPrestamosTab extends StatelessWidget {
     super.key,
     required this.usuarioId,
     required this.usuarioEmail,
+    this.deporteId,
+    this.onCambiarSeleccion,
   });
 
   final String usuarioId;
   final String usuarioEmail;
+  final String? deporteId;
+  final VoidCallback? onCambiarSeleccion;
 
   void _abrir(BuildContext context, UtileroFlujoKiosco flujo) {
     Navigator.push<void>(
@@ -24,6 +29,7 @@ class UtileroKioscoPrestamosTab extends StatelessWidget {
           flujo: flujo,
           usuarioId: usuarioId,
           usuarioEmail: usuarioEmail,
+          deporteId: deporteId,
         ),
       ),
     );
@@ -38,6 +44,14 @@ class UtileroKioscoPrestamosTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          if (onCambiarSeleccion != null) ...[
+            UtileroCambiarSeleccionButton(
+              deporteId: deporteId,
+              onTap: onCambiarSeleccion!,
+              compacto: true,
+            ),
+            const SizedBox(height: 12),
+          ],
           DtflyMockupPrimaryButton(
             texto: '+ Prestar material',
             onTap: () => _abrir(context, UtileroFlujoKiosco.prestar),
@@ -55,6 +69,7 @@ class UtileroKioscoPrestamosTab extends StatelessWidget {
             onTap: () => UtileroAgregarMaterialDialog.mostrar(
               context,
               usuarioId: usuarioId,
+              deporteId: deporteId,
             ),
           ),
           const SizedBox(height: 10),

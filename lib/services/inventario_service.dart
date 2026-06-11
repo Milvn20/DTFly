@@ -2,9 +2,9 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 
+import 'package:flutter_application_1/core/deporte_usuario.dart';
+import 'package:flutter_application_1/core/utilero_imagen_comprimir.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/models/prestamo_material.dart';
 
@@ -35,6 +35,25 @@ class InventarioService {
     });
   }
 
+  /// Solo materiales de la selección elegida (fútbol, voleibol, etc.).
+  static Stream<List<MaterialInventario>> streamMaterialesDeporte(String? deporteId) {
+    return streamMateriales().map(
+      (list) => list.where((m) => perteneceADeporte(m, deporteId)).toList(),
+    );
+  }
+
+  static bool perteneceADeporte(MaterialInventario m, String? deporteId) {
+    if (deporteId == null || deporteId.isEmpty) return true;
+    final d = m.deporteId;
+    if (d == null || d.isEmpty) return false;
+    return d == deporteId;
+  }
+
+  static Map<String, dynamic> _camposDeporte(String? deporteId) {
+    if (deporteId == null || deporteId.isEmpty) return {};
+    return DeporteUsuario.camposAlGuardar(deporteId);
+  }
+
   static Stream<List<MaterialInventario>> streamMaterialesDanados() {
     return streamMateriales().map(
       (list) => list.where((m) => m.tieneDanados).toList(),
@@ -48,18 +67,12 @@ class InventarioService {
     String unidad = 'unidad',
     String? imagenUrl,
     Uint8List? imagenBytes,
+    String? deporteId,
   }) async {
-    var url = imagenUrl?.trim();
     String? imagenBase64;
     if (imagenBytes != null && imagenBytes.isNotEmpty) {
-      imagenBase64 = base64Encode(imagenBytes);
-      if (url == null || url.isEmpty) {
-        try {
-          url = await _subirImagenInventario(imagenBytes);
-        } catch (e) {
-          debugPrint('Storage inventario (opcional): $e');
-        }
-      }
+      final mini = await comprimirImagenInventario(imagenBytes);
+      imagenBase64 = base64Encode(mini);
     }
     final ref = await _db.collection(_colMateriales).add({
       'nombre': nombre,
@@ -68,19 +81,21 @@ class InventarioService {
       'cantidadDisponible': cantidad,
       'cantidadDanada': 0,
       'unidad': unidad,
-      if (url != null && url.isNotEmpty) 'imagenUrl': url,
+      if (imagenUrl != null && imagenUrl!.isNotEmpty) 'imagenUrl': imagenUrl,
       if (imagenBase64 != null && imagenBase64.isNotEmpty)
         'imagenBase64': imagenBase64,
+      ..._camposDeporte(deporteId),
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
     return ref.id;
   }
 
-  /// Material creado por el utilero con foto propia (siempre en Firestore).
+  /// Material creado por el utilero con foto propia (miniatura en Firestore).
   static Future<String> agregarMaterialPersonalizado({
     required String nombre,
     required int cantidad,
     required Uint8List imagenBytes,
+    required String deporteId,
   }) async {
     final limpio = nombre.trim();
     if (limpio.isEmpty) {
@@ -92,13 +107,7 @@ class InventarioService {
     if (imagenBytes.isEmpty) {
       throw StateError('Selecciona una foto del material');
     }
-
     final imagenBase64 = base64Encode(imagenBytes);
-    if (imagenBase64.length > 750000) {
-      throw StateError(
-        'La foto es muy pesada. Elige una imagen más pequeña.',
-      );
-    }
 
     final ref = await _db.collection(_colMateriales).add({
       'nombre': limpio,
@@ -109,47 +118,24 @@ class InventarioService {
       'unidad': 'unidad',
       'imagenBase64': imagenBase64,
       'esPersonalizado': true,
+      ..._camposDeporte(deporteId),
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
 
-    try {
-      final url = await _subirImagenInventario(imagenBytes);
-      await ref.update({'imagenUrl': url});
-    } catch (e) {
-      debugPrint('Storage inventario (opcional): $e');
-    }
-
     return ref.id;
-  }
-
-  static Future<String> _subirImagenInventario(Uint8List bytes) async {
-    final path =
-        'inventario/${DateTime.now().millisecondsSinceEpoch}_${bytes.length}.jpg';
-    final storageRef = FirebaseStorage.instance.ref(path);
-    await storageRef.putData(
-      bytes,
-      SettableMetadata(contentType: 'image/jpeg'),
-    );
-    return storageRef.getDownloadURL();
   }
 
   static Future<String> subirImagenMaterial({
     required String materialId,
     required Uint8List bytes,
   }) async {
-    final imagenBase64 = base64Encode(bytes);
-    String? url;
-    try {
-      url = await _subirImagenInventario(bytes);
-    } catch (e) {
-      debugPrint('Storage inventario (opcional): $e');
-    }
+    final miniatura = await comprimirImagenInventario(bytes);
+    final imagenBase64 = base64Encode(miniatura);
     await _db.collection(_colMateriales).doc(materialId).update({
       'imagenBase64': imagenBase64,
-      if (url != null && url.isNotEmpty) 'imagenUrl': url,
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
-    return url ?? '';
+    return '';
   }
 
   static Future<void> actualizarCantidad({
@@ -271,7 +257,30 @@ class InventarioService {
   }
 
   static Future<void> eliminarMaterial(String id) async {
+    final activos = await streamPrestamosActivos().first;
+    final enPrestamo = activos
+        .where((p) => p.materialId == id)
+        .fold<int>(0, (s, p) => s + p.cantidad);
+    if (enPrestamo > 0) {
+      throw StateError(
+        'Hay $enPrestamo unidad(es) en préstamo. Registra la devolución antes de eliminar.',
+      );
+    }
     await _db.collection(_colMateriales).doc(id).delete();
+  }
+
+  static Future<void> actualizarUbicacion({
+    required String materialId,
+    String? ubicacion,
+    String? pasillo,
+    String? estante,
+  }) async {
+    await _db.collection(_colMateriales).doc(materialId).update({
+      if (ubicacion != null) 'ubicacion': ubicacion.trim(),
+      if (pasillo != null) 'pasillo': pasillo.trim(),
+      if (estante != null) 'estante': estante.trim(),
+      'actualizadoEn': FieldValue.serverTimestamp(),
+    });
   }
 
   static Stream<List<PrestamoMaterial>> streamPrestamosActivos() {

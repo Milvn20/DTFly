@@ -12,11 +12,16 @@ class UtileroSeleccionDeporteScreen extends StatelessWidget {
     required this.nombre,
     required this.usuarioEmail,
     required this.usuarioId,
+    this.modoCambio = false,
+    this.deporteActual,
   });
 
   final String nombre;
   final String usuarioEmail;
   final String usuarioId;
+  /// Si es true, vuelve con el id elegido (cambiar selección sin cerrar sesión).
+  final bool modoCambio;
+  final String? deporteActual;
 
   Future<void> _elegirDeporte(
     BuildContext context,
@@ -28,6 +33,10 @@ class UtileroSeleccionDeporteScreen extends StatelessWidget {
         deporteId: deporte.id,
       );
       if (!context.mounted) return;
+      if (modoCambio) {
+        Navigator.pop(context, deporte.id);
+        return;
+      }
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
@@ -52,6 +61,13 @@ class UtileroSeleccionDeporteScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: DeportesCategoria.fondoSeleccion,
+      appBar: modoCambio
+          ? AppBar(
+              title: const Text('Cambiar selección'),
+              backgroundColor: DeportesCategoria.botonMaroon,
+              foregroundColor: Colors.white,
+            )
+          : null,
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -103,8 +119,10 @@ class UtileroSeleccionDeporteScreen extends StatelessWidget {
                       color: DeportesCategoria.botonMaroon,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: const Text(
-                      'Seleccione su selección:',
+                    child: Text(
+                      modoCambio
+                          ? 'Elige otra selección para ver su inventario:'
+                          : 'Seleccione su selección:',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         color: Colors.white,
@@ -132,6 +150,7 @@ class UtileroSeleccionDeporteScreen extends StatelessWidget {
                           final deporte = DeportesCategoria.todas[index];
                           return _DeporteTile(
                             deporte: deporte,
+                            seleccionado: deporteActual == deporte.id,
                             onTap: () => _elegirDeporte(context, deporte),
                           );
                         },
@@ -152,24 +171,39 @@ class _DeporteTile extends StatelessWidget {
   const _DeporteTile({
     required this.deporte,
     required this.onTap,
+    this.seleccionado = false,
   });
 
   final DeporteCategoria deporte;
   final VoidCallback onTap;
+  final bool seleccionado;
 
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: DeportesCategoria.botonMaroon,
+      color: seleccionado
+          ? DeportesCategoria.botonMaroon.withValues(alpha: 0.85)
+          : DeportesCategoria.botonMaroon,
       borderRadius: BorderRadius.circular(4),
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(4),
-        child: Padding(
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(4),
+            border: seleccionado
+                ? Border.all(color: Colors.white, width: 3)
+                : null,
+          ),
           padding: const EdgeInsets.all(12),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
+              if (seleccionado)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 4),
+                  child: Icon(Icons.check_circle, color: Colors.white, size: 18),
+                ),
               Icon(deporte.icono, color: Colors.white, size: 48),
               const SizedBox(height: 10),
               Text(

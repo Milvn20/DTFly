@@ -15,11 +15,13 @@ class UtileroKioscoFlujoScreen extends StatefulWidget {
     required this.flujo,
     required this.usuarioId,
     required this.usuarioEmail,
+    this.deporteId,
   });
 
   final UtileroFlujoKiosco flujo;
   final String usuarioId;
   final String usuarioEmail;
+  final String? deporteId;
 
   @override
   State<UtileroKioscoFlujoScreen> createState() => _UtileroKioscoFlujoScreenState();
@@ -78,6 +80,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
   @override
   void initState() {
     super.initState();
+    _cargarMaterialesAgregados();
     if (_esPrestar) {
       _cargarEntrenadores();
     } else {
@@ -88,15 +91,27 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
     }
   }
 
+  Future<void> _cargarMaterialesAgregados() async {
+    final mats =
+        await InventarioService.streamMaterialesDeporte(widget.deporteId).first;
+    if (mounted) {
+      setState(() {
+        _materialesAgregados = UtileroInventarioKiosco.materialesAgregados(mats);
+      });
+    }
+  }
+
   Future<void> _cargarPrestados() async {
-    final porCat = await UtileroInventarioKiosco.prestadosPorCategoria();
-    final porId = await UtileroInventarioKiosco.prestadosPorMaterialId();
-    final mats = await InventarioService.streamMateriales().first;
+    final porCat = await UtileroInventarioKiosco.prestadosPorCategoria(
+      deporteId: widget.deporteId,
+    );
+    final porId = await UtileroInventarioKiosco.prestadosPorMaterialId(
+      deporteId: widget.deporteId,
+    );
     if (mounted) {
       setState(() {
         _prestadosPorCat = porCat;
         _prestadosPorMaterialId = porId;
-        _materialesAgregados = UtileroInventarioKiosco.materialesAgregados(mats);
       });
     }
   }
@@ -113,8 +128,27 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
 
   Future<void> _cargarMaxCantidad({int? prestadosDirecto}) async {
     if (_material == null) return;
+    if (_materialIdSeleccionado != null) {
+      for (final m in _materialesAgregados) {
+        if (m.id == _materialIdSeleccionado) {
+          if (_esPrestar || _esDanado) {
+            _maxCantidad = m.cantidadDisponible;
+          } else if (_esDevolver) {
+            _maxCantidad = prestadosDirecto ??
+                _prestadosPorMaterialId[_materialIdSeleccionado] ??
+                0;
+          } else {
+            _maxCantidad = 9999;
+          }
+          return;
+        }
+      }
+    }
     if (_esPrestar || _esDanado) {
-      final stock = await UtileroInventarioKiosco.materialesDeCategoria(_material!);
+      final stock = await UtileroInventarioKiosco.materialesDeCategoria(
+        _material!,
+        deporteId: widget.deporteId,
+      );
       var disp = 0;
       for (final m in stock) {
         disp += m.cantidadDisponible;
@@ -127,7 +161,10 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
         _maxCantidad = _prestadosPorMaterialId[_materialIdSeleccionado] ?? 0;
       } else {
         _maxCantidad = _prestadosPorCat[_material!.id] ??
-            await UtileroInventarioKiosco.prestadosActivos(_material!);
+            await UtileroInventarioKiosco.prestadosActivos(
+              _material!,
+              deporteId: widget.deporteId,
+            );
       }
     } else {
       _maxCantidad = 9999;
@@ -184,18 +221,41 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
     try {
       switch (widget.flujo) {
         case UtileroFlujoKiosco.recibir:
-          await UtileroInventarioKiosco.ingresarMaterial(
-            cat: _material!,
-            cantidad: _cantidad,
-            utileroId: widget.usuarioId,
-          );
+          if (_materialIdSeleccionado != null &&
+              _materialNombreSeleccionado != null) {
+            await UtileroInventarioKiosco.ingresarStockPorId(
+              materialId: _materialIdSeleccionado!,
+              materialNombre: _materialNombreSeleccionado!,
+              cantidad: _cantidad,
+              utileroId: widget.usuarioId,
+            );
+          } else {
+            await UtileroInventarioKiosco.ingresarMaterial(
+              cat: _material!,
+              cantidad: _cantidad,
+              utileroId: widget.usuarioId,
+              deporteId: widget.deporteId,
+            );
+          }
         case UtileroFlujoKiosco.prestar:
-          await UtileroInventarioKiosco.prestarMaterial(
-            cat: _material!,
-            cantidad: _cantidad,
-            persona: _persona!,
-            utileroId: widget.usuarioId,
-          );
+          if (_materialIdSeleccionado != null &&
+              _materialNombreSeleccionado != null) {
+            await UtileroInventarioKiosco.prestarMaterialPorId(
+              materialId: _materialIdSeleccionado!,
+              materialNombre: _materialNombreSeleccionado!,
+              cantidad: _cantidad,
+              persona: _persona!,
+              utileroId: widget.usuarioId,
+            );
+          } else {
+            await UtileroInventarioKiosco.prestarMaterial(
+              cat: _material!,
+              cantidad: _cantidad,
+              persona: _persona!,
+              utileroId: widget.usuarioId,
+              deporteId: widget.deporteId,
+            );
+          }
         case UtileroFlujoKiosco.devolver:
           await UtileroInventarioKiosco.devolverMaterial(
             cat: _material!,
@@ -203,13 +263,25 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
             utileroId: widget.usuarioId,
             materialId: _materialIdSeleccionado,
             materialNombre: _materialNombreSeleccionado,
+            deporteId: widget.deporteId,
           );
         case UtileroFlujoKiosco.danado:
-          await UtileroInventarioKiosco.darDeBaja(
-            cat: _material!,
-            cantidad: _cantidad,
-            utileroId: widget.usuarioId,
-          );
+          if (_materialIdSeleccionado != null &&
+              _materialNombreSeleccionado != null) {
+            await UtileroInventarioKiosco.darDeBajaPorId(
+              materialId: _materialIdSeleccionado!,
+              materialNombre: _materialNombreSeleccionado!,
+              cantidad: _cantidad,
+              utileroId: widget.usuarioId,
+            );
+          } else {
+            await UtileroInventarioKiosco.darDeBaja(
+              cat: _material!,
+              cantidad: _cantidad,
+              utileroId: widget.usuarioId,
+              deporteId: widget.deporteId,
+            );
+          }
       }
       if (!mounted) return;
       _mensaje('¡Listo!');
@@ -395,9 +467,9 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
         ),
         if (_materialesAgregados.isNotEmpty) ...[
           const SizedBox(height: 16),
-          const Text(
-            'Materiales agregados',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          Text(
+            _esDevolver ? 'Materiales agregados' : 'Tus materiales agregados',
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
           ),
           const SizedBox(height: 8),
           ..._materialesAgregados.map((m) {

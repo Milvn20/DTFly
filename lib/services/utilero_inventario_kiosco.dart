@@ -83,16 +83,21 @@ class UtileroInventarioKiosco {
   }
 
   /// Unidades en préstamo por categoría (para pantalla de devolución).
-  static Future<Map<String, int>> prestadosPorCategoria() async {
+  static Future<Map<String, int>> prestadosPorCategoria({
+    String? deporteId,
+  }) async {
     final activos = await InventarioService.streamPrestamosActivos().first;
-    final mats = await InventarioService.streamMateriales().first;
+    final mats =
+        await InventarioService.streamMaterialesDeporte(deporteId).first;
     return _prestadosAgrupados(activos, mats).porCategoria;
   }
 
-  /// Unidades en préstamo por id de material (personalizados).
-  static Future<Map<String, int>> prestadosPorMaterialId() async {
+  static Future<Map<String, int>> prestadosPorMaterialId({
+    String? deporteId,
+  }) async {
     final activos = await InventarioService.streamPrestamosActivos().first;
-    final mats = await InventarioService.streamMateriales().first;
+    final mats =
+        await InventarioService.streamMaterialesDeporte(deporteId).first;
     return _prestadosAgrupados(activos, mats).porMaterialId;
   }
 
@@ -116,15 +121,48 @@ class UtileroInventarioKiosco {
     return (porCategoria: porCat, porMaterialId: porId);
   }
 
-  static Future<List<MaterialInventario>> materialesDeCategoria(
+  static List<MaterialInventario> materialesEnCategoria(
+    List<MaterialInventario> mats,
     UtileroMaterialCat cat,
-  ) async {
-    final todos = await InventarioService.streamMateriales().first;
+  ) {
+    return mats
+        .where((m) => _resolverMaterial(m) == cat && !esMaterialPersonalizado(m))
+        .toList()
+      ..sort((a, b) => b.cantidadTotal.compareTo(a.cantidadTotal));
+  }
+
+  static MaterialInventario? materialPrincipalCategoria(
+    List<MaterialInventario> mats,
+    UtileroMaterialCat cat,
+  ) {
+    final list = mats
+        .where((m) => _resolverMaterial(m) == cat && !esMaterialPersonalizado(m))
+        .toList();
+    if (list.isEmpty) return null;
+    list.sort((a, b) => b.cantidadTotal.compareTo(a.cantidadTotal));
+    return list.first;
+  }
+
+  static List<MaterialInventario> materialesEliminables(
+    List<MaterialInventario> mats,
+  ) {
+    return mats.toList()..sort((a, b) => a.nombre.compareTo(b.nombre));
+  }
+
+  static Future<List<MaterialInventario>> materialesDeCategoria(
+    UtileroMaterialCat cat, {
+    String? deporteId,
+  }) async {
+    final todos =
+        await InventarioService.streamMaterialesDeporte(deporteId).first;
     return todos.where((m) => _resolverMaterial(m) == cat).toList();
   }
 
-  static Future<MaterialInventario> asegurarMaterial(UtileroMaterialCat cat) async {
-    final existentes = await materialesDeCategoria(cat);
+  static Future<MaterialInventario> asegurarMaterial(
+    UtileroMaterialCat cat, {
+    String? deporteId,
+  }) async {
+    final existentes = await materialesDeCategoria(cat, deporteId: deporteId);
     if (existentes.isNotEmpty) {
       existentes.sort((a, b) => b.cantidadTotal.compareTo(a.cantidadTotal));
       return existentes.first;
@@ -133,8 +171,9 @@ class UtileroInventarioKiosco {
       nombre: cat.nombre,
       categoria: cat.etiquetaFirestore,
       cantidad: 0,
+      deporteId: deporteId,
     );
-    final nuevos = await materialesDeCategoria(cat);
+    final nuevos = await materialesDeCategoria(cat, deporteId: deporteId);
     if (nuevos.isEmpty) {
       throw StateError('No se pudo crear ${cat.nombre}');
     }
@@ -160,13 +199,34 @@ class UtileroInventarioKiosco {
     return list;
   }
 
-  static Future<void> ingresarMaterial({
-    required UtileroMaterialCat cat,
+  static Future<void> ingresarStockPorId({
+    required String materialId,
+    required String materialNombre,
     required int cantidad,
     required String utileroId,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
-    final mat = await asegurarMaterial(cat);
+    await InventarioService.ingresarStock(
+      materialId: materialId,
+      cantidad: cantidad,
+    );
+    await UtileroService.registrarActividad(
+      utileroId: utileroId,
+      accion: 'Recepción',
+      descripcion: '$cantidad ${materialNombre.toLowerCase()} ingresados',
+      material: materialNombre,
+      cantidad: cantidad,
+    );
+  }
+
+  static Future<void> ingresarMaterial({
+    required UtileroMaterialCat cat,
+    required int cantidad,
+    required String utileroId,
+    String? deporteId,
+  }) async {
+    if (cantidad <= 0) throw StateError('Ingresa una cantidad');
+    final mat = await asegurarMaterial(cat, deporteId: deporteId);
     await InventarioService.ingresarStock(materialId: mat.id, cantidad: cantidad);
     await UtileroService.registrarActividad(
       utileroId: utileroId,
@@ -177,14 +237,41 @@ class UtileroInventarioKiosco {
     );
   }
 
-  static Future<void> prestarMaterial({
-    required UtileroMaterialCat cat,
+  static Future<void> prestarMaterialPorId({
+    required String materialId,
+    required String materialNombre,
     required int cantidad,
     required UtileroPersonaEntrega persona,
     required String utileroId,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
-    final mat = await asegurarMaterial(cat);
+    await InventarioService.registrarPrestamo(
+      materialId: materialId,
+      materialNombre: materialNombre,
+      cantidad: cantidad,
+      prestadoA: persona.nombre,
+      entrenadorEmail:
+          persona.email.isNotEmpty ? persona.email : persona.nombre,
+    );
+    await UtileroService.registrarActividad(
+      utileroId: utileroId,
+      accion: 'Préstamo',
+      descripcion:
+          '$cantidad ${materialNombre.toLowerCase()} a ${persona.nombre}',
+      material: materialNombre,
+      cantidad: cantidad,
+    );
+  }
+
+  static Future<void> prestarMaterial({
+    required UtileroMaterialCat cat,
+    required int cantidad,
+    required UtileroPersonaEntrega persona,
+    required String utileroId,
+    String? deporteId,
+  }) async {
+    if (cantidad <= 0) throw StateError('Ingresa una cantidad');
+    final mat = await asegurarMaterial(cat, deporteId: deporteId);
     await InventarioService.registrarPrestamo(
       materialId: mat.id,
       materialNombre: cat.nombre,
@@ -207,18 +294,20 @@ class UtileroInventarioKiosco {
     required String utileroId,
     String? materialId,
     String? materialNombre,
+    String? deporteId,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
     MaterialInventario? mat;
     if (materialId != null) {
-      for (final m in await InventarioService.streamMateriales().first) {
+      for (final m
+          in await InventarioService.streamMaterialesDeporte(deporteId).first) {
         if (m.id == materialId) {
           mat = m;
           break;
         }
       }
     }
-    final destino = mat ?? await asegurarMaterial(cat);
+    final destino = mat ?? await asegurarMaterial(cat, deporteId: deporteId);
     final nombre = materialNombre ?? destino.nombre;
     await InventarioService.devolverCantidadMaterial(
       materialId: destino.id,
@@ -233,13 +322,35 @@ class UtileroInventarioKiosco {
     );
   }
 
-  static Future<void> darDeBaja({
-    required UtileroMaterialCat cat,
+  static Future<void> darDeBajaPorId({
+    required String materialId,
+    required String materialNombre,
     required int cantidad,
     required String utileroId,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
-    final mat = await asegurarMaterial(cat);
+    await InventarioService.registrarDanado(
+      materialId: materialId,
+      cantidad: cantidad,
+      motivo: 'Baja por utilero',
+    );
+    await UtileroService.registrarActividad(
+      utileroId: utileroId,
+      accion: 'Material dañado',
+      descripcion: '$cantidad ${materialNombre.toLowerCase()} dados de baja',
+      material: materialNombre,
+      cantidad: cantidad,
+    );
+  }
+
+  static Future<void> darDeBaja({
+    required UtileroMaterialCat cat,
+    required int cantidad,
+    required String utileroId,
+    String? deporteId,
+  }) async {
+    if (cantidad <= 0) throw StateError('Ingresa una cantidad');
+    final mat = await asegurarMaterial(cat, deporteId: deporteId);
     await InventarioService.registrarDanado(
       materialId: mat.id,
       cantidad: cantidad,
@@ -254,11 +365,28 @@ class UtileroInventarioKiosco {
     );
   }
 
-  static Future<int> prestadosActivos(UtileroMaterialCat cat) async {
-    final mat = await asegurarMaterial(cat);
+  static Future<int> prestadosActivos(
+    UtileroMaterialCat cat, {
+    String? deporteId,
+  }) async {
+    final mat = await asegurarMaterial(cat, deporteId: deporteId);
     final activos = await InventarioService.streamPrestamosActivos().first;
     return activos
         .where((p) => p.materialId == mat.id)
         .fold<int>(0, (s, p) => s + p.cantidad);
+  }
+
+  static Future<void> eliminarMaterial({
+    required MaterialInventario material,
+    required String utileroId,
+  }) async {
+    await InventarioService.eliminarMaterial(material.id);
+    await UtileroService.registrarActividad(
+      utileroId: utileroId,
+      accion: 'Eliminó material',
+      descripcion: material.nombre,
+      material: material.nombre,
+      cantidad: material.cantidadTotal,
+    );
   }
 }

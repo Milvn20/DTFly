@@ -9,11 +9,15 @@ class UtileroAgregarMaterialDialog {
   static Future<bool> mostrar(
     BuildContext context, {
     required String usuarioId,
+    String? deporteId,
   }) async {
     final ok = await Navigator.push<bool>(
       context,
       MaterialPageRoute(
-        builder: (_) => UtileroAgregarMaterialScreen(usuarioId: usuarioId),
+        builder: (_) => UtileroAgregarMaterialScreen(
+          usuarioId: usuarioId,
+          deporteId: deporteId,
+        ),
       ),
     );
     return ok == true;

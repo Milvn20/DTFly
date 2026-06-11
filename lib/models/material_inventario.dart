@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:flutter_application_1/core/deporte_usuario.dart';
+
 /// Estados de stock según módulo de inventario DTFly.
 abstract class EstadoStockMaterial {
   static const String disponible = 'disponible';
@@ -21,6 +23,11 @@ class MaterialInventario {
     this.imagenUrl,
     this.imagenBase64,
     this.esPersonalizado = false,
+    this.deporteId,
+    this.deporteNombre,
+    this.ubicacion,
+    this.pasillo,
+    this.estante,
   });
 
   final String id;
@@ -34,6 +41,25 @@ class MaterialInventario {
   final String? imagenUrl;
   final String? imagenBase64;
   final bool esPersonalizado;
+  final String? deporteId;
+  final String? deporteNombre;
+  final String? ubicacion;
+  final String? pasillo;
+  final String? estante;
+
+  String get ubicacionTexto {
+    final parts = <String>[];
+    if (ubicacion != null && ubicacion!.trim().isNotEmpty) {
+      parts.add(ubicacion!.trim());
+    }
+    if (pasillo != null && pasillo!.trim().isNotEmpty) {
+      parts.add('Pasillo ${pasillo!.trim()}');
+    }
+    if (estante != null && estante!.trim().isNotEmpty) {
+      parts.add('Estante ${estante!.trim()}');
+    }
+    return parts.isEmpty ? '' : parts.join(' · ');
+  }
 
   bool get tieneFotoPersonalizada {
     final b64 = imagenBase64?.trim();
@@ -73,6 +99,11 @@ class MaterialInventario {
       imagenUrl: (d['imagenUrl'] ?? d['fotoUrl'] ?? d['imagen']) as String?,
       imagenBase64: d['imagenBase64'] as String?,
       esPersonalizado: d['esPersonalizado'] as bool? ?? false,
+      deporteId: DeporteUsuario.idDesde(d),
+      deporteNombre: DeporteUsuario.nombreDesde(d),
+      ubicacion: d['ubicacion'] as String?,
+      pasillo: d['pasillo'] as String?,
+      estante: d['estante'] as String?,
     );
   }
 }

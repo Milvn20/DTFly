@@ -33,6 +33,10 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
   final _apellido = TextEditingController();
   final _correo = TextEditingController();
   final _telefono = TextEditingController();
+  final _turno = TextEditingController();
+  final _horarioInicio = TextEditingController();
+  final _horarioFin = TextEditingController();
+  final _bodega = TextEditingController();
   bool _editando = false;
   bool _guardando = false;
   bool _guardandoDeporte = false;
@@ -45,6 +49,10 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
     _apellido.dispose();
     _correo.dispose();
     _telefono.dispose();
+    _turno.dispose();
+    _horarioInicio.dispose();
+    _horarioFin.dispose();
+    _bodega.dispose();
     super.dispose();
   }
 
@@ -53,6 +61,10 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
     _apellido.text = p.apellido;
     _correo.text = p.correo.isNotEmpty ? p.correo : widget.usuarioEmail;
     _telefono.text = p.telefono;
+    _turno.text = p.turno ?? '';
+    _horarioInicio.text = p.horarioInicio ?? '';
+    _horarioFin.text = p.horarioFin ?? '';
+    _bodega.text = p.bodegaPrincipal ?? '';
     _deporteId = p.deporteId;
     _perfilSincronizado = true;
   }
@@ -101,6 +113,10 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
         correo: _correo.text,
         telefono: _telefono.text,
         deporteId: _deporteId,
+        turno: _turno.text,
+        horarioInicio: _horarioInicio.text,
+        horarioFin: _horarioFin.text,
+        bodegaPrincipal: _bodega.text,
       );
       if (mounted) {
         setState(() => _editando = false);
@@ -273,6 +289,22 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
                     : DtflyTheme.fieldRed.withValues(alpha: 0.2),
               ),
             ),
+            _infoTile(
+              'Turno de bodega',
+              p?.turno?.isNotEmpty == true ? p!.turno! : '—',
+            ),
+            _infoTile(
+              'Horario',
+              p?.horarioInicio?.isNotEmpty == true
+                  ? '${p!.horarioInicio} – ${p.horarioFin ?? ""}'
+                  : '—',
+            ),
+            _infoTile(
+              'Bodega / ubicación',
+              p?.bodegaPrincipal?.isNotEmpty == true
+                  ? p!.bodegaPrincipal!
+                  : '—',
+            ),
             const SizedBox(height: 16),
             if (_editando) ...[
               TextField(
@@ -291,6 +323,30 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
                 controller: _telefono,
                 decoration: const InputDecoration(labelText: 'Teléfono'),
                 keyboardType: TextInputType.phone,
+              ),
+              TextField(
+                controller: _turno,
+                decoration: const InputDecoration(
+                  labelText: 'Turno (Mañana, Tarde, Completo)',
+                ),
+              ),
+              TextField(
+                controller: _horarioInicio,
+                decoration: const InputDecoration(
+                  labelText: 'Horario inicio (ej. 08:00)',
+                ),
+              ),
+              TextField(
+                controller: _horarioFin,
+                decoration: const InputDecoration(
+                  labelText: 'Horario fin (ej. 14:00)',
+                ),
+              ),
+              TextField(
+                controller: _bodega,
+                decoration: const InputDecoration(
+                  labelText: 'Bodega principal (pabellón, casillero)',
+                ),
               ),
             ] else ...[
               _infoTile('Nombre', p?.nombreCompleto ?? widget.nombreInicial),

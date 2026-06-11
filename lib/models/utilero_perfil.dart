@@ -17,6 +17,10 @@ class UtileroPerfil {
     required this.notifSistema,
     this.deporteId,
     this.deporteNombre,
+    this.turno,
+    this.horarioInicio,
+    this.horarioFin,
+    this.bodegaPrincipal,
   });
 
   final String id;
@@ -32,6 +36,12 @@ class UtileroPerfil {
   final bool notifSistema;
   final String? deporteId;
   final String? deporteNombre;
+  /// Mañana, Tarde, Completo, etc.
+  final String? turno;
+  final String? horarioInicio;
+  final String? horarioFin;
+  /// Ubicación física de la bodega del utilero.
+  final String? bodegaPrincipal;
 
   String get nombreCompleto {
     final parts = [nombre, apellido].where((e) => e.trim().isNotEmpty);
@@ -90,6 +100,10 @@ class UtileroPerfil {
       notifSistema: d['notif_sistema'] as bool? ?? true,
       deporteId: deporteId,
       deporteNombre: deporteNombre,
+      turno: d['turno'] as String?,
+      horarioInicio: d['horario_inicio'] as String?,
+      horarioFin: d['horario_fin'] as String?,
+      bodegaPrincipal: d['bodega_principal'] as String?,
     );
   }
 }

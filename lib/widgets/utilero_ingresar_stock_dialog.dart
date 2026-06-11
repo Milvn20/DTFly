@@ -10,6 +10,8 @@ import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
+import 'package:flutter_application_1/core/utilero_imagen_comprimir.dart';
+import 'package:flutter_application_1/widgets/utilero_eliminar_material_dialog.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
 
 /// Agregar unidades al stock desde inventario (tocar una categoría o material).
@@ -22,6 +24,7 @@ class UtileroIngresarStockDialog {
     required String usuarioId,
     required int disponible,
     required int total,
+    String? deporteId,
     String? imagenUrl,
     String? imagenBase64,
   }) {
@@ -42,6 +45,7 @@ class UtileroIngresarStockDialog {
         cat: categoria,
         cantidad: cantidad,
         utileroId: usuarioId,
+        deporteId: deporteId,
       ),
       materialNombre: categoria.nombre,
     );
@@ -66,6 +70,7 @@ class UtileroIngresarStockDialog {
       imagenUrl: material.imagenUrl,
       imagenBase64: material.imagenBase64,
       categoria: cat,
+      material: material,
       onConfirmar: (cantidad) async {
         await InventarioService.ingresarStock(
           materialId: material.id,
@@ -95,6 +100,7 @@ class UtileroIngresarStockDialog {
     String? imagenUrl,
     String? imagenBase64,
     String? materialId,
+    MaterialInventario? material,
     required Future<void> Function(int cantidad) onConfirmar,
     required String materialNombre,
   }) async {
@@ -172,11 +178,14 @@ class UtileroIngresarStockDialog {
                   onPressed: () async {
                     final img = await ImagePicker().pickImage(
                       source: ImageSource.gallery,
-                      maxWidth: 800,
-                      imageQuality: 85,
+                      maxWidth: 256,
+                      maxHeight: 256,
+                      imageQuality: 60,
                     );
                     if (img == null) return;
-                    final bytes = await img.readAsBytes();
+                    final bytes = await comprimirImagenInventario(
+                      await img.readAsBytes(),
+                    );
                     try {
                       await InventarioService.subirImagenMaterial(
                         materialId: materialId,
@@ -233,6 +242,24 @@ class UtileroIngresarStockDialog {
                 onPressed: () => Navigator.pop(ctx, false),
                 child: const Text('Cancelar'),
               ),
+              if (material != null) ...[
+                const SizedBox(height: 4),
+                TextButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx, false);
+                    await UtileroEliminarMaterialDialog.confirmar(
+                      context,
+                      material: material,
+                      usuarioId: usuarioId,
+                    );
+                  },
+                  icon: const Icon(Icons.delete_outline, size: 20),
+                  label: const Text('Eliminar material'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFFC62828),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

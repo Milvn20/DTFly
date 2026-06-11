@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
@@ -7,68 +8,157 @@ import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_mockup_dashboard.dart';
 import 'package:flutter_application_1/widgets/utilero_agregar_material_dialog.dart';
+import 'package:flutter_application_1/widgets/utilero_cambiar_seleccion_button.dart';
 import 'package:flutter_application_1/widgets/utilero_ingresar_stock_dialog.dart';
+import 'package:flutter_application_1/widgets/utilero_material_acciones_sheet.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
 
 /// Pestaña Inventario — grid compacto de stock por categoría y materiales «Más».
 class UtileroKioscoStockTab extends StatelessWidget {
-  const UtileroKioscoStockTab({super.key, required this.usuarioId});
+  const UtileroKioscoStockTab({
+    super.key,
+    required this.usuarioId,
+    this.deporteId,
+    this.onCambiarSeleccion,
+  });
 
   final String usuarioId;
+  final String? deporteId;
+  final VoidCallback? onCambiarSeleccion;
+
+  String get _subtituloDeporte {
+    if (deporteId == null || deporteId!.isEmpty) {
+      return 'Stock disponible por material';
+    }
+    return 'Inventario · ${DeportesCategoria.nombreVisible(deporteId)}';
+  }
 
   void _agregar(BuildContext context) {
-    UtileroAgregarMaterialDialog.mostrar(context, usuarioId: usuarioId);
+    UtileroAgregarMaterialDialog.mostrar(
+      context,
+      usuarioId: usuarioId,
+      deporteId: deporteId,
+    );
+  }
+
+  void _abrirEliminar(BuildContext context) {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UtileroEliminarMaterialListaScreen(
+          usuarioId: usuarioId,
+          deporteId: deporteId,
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return DtflyMockupDashboardLayout(
       saludo: 'Inventario',
-      subtitulo: 'Stock disponible por material',
+      subtitulo: _subtituloDeporte,
       stats: const [],
       compacto: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Material(
-            color: const Color(0xFFC62828),
-            borderRadius: BorderRadius.circular(14),
-            elevation: 1,
-            child: InkWell(
-              onTap: () => _agregar(context),
-              borderRadius: BorderRadius.circular(14),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 9, horizontal: 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.add_circle, color: Colors.white, size: 18),
-                    SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'Agregar material',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 13,
-                        ),
-                        overflow: TextOverflow.ellipsis,
+          if (onCambiarSeleccion != null) ...[
+            UtileroCambiarSeleccionButton(
+              deporteId: deporteId,
+              onTap: onCambiarSeleccion!,
+              compacto: true,
+            ),
+            const SizedBox(height: 8),
+          ],
+          Row(
+            children: [
+              Expanded(
+                child: Material(
+                  color: const Color(0xFFC62828),
+                  borderRadius: BorderRadius.circular(14),
+                  elevation: 1,
+                  child: InkWell(
+                    onTap: () => _agregar(context),
+                    borderRadius: BorderRadius.circular(14),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 9, horizontal: 8),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.add_circle, color: Colors.white, size: 18),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Agregar',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
+                  ),
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Material(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  child: InkWell(
+                    onTap: () => _abrirEliminar(context),
+                    borderRadius: BorderRadius.circular(14),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        vertical: 9,
+                        horizontal: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFC62828)),
+                      ),
+                      child: const Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.delete_outline,
+                            color: Color(0xFFC62828),
+                            size: 18,
+                          ),
+                          SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              'Eliminar',
+                              style: TextStyle(
+                                color: Color(0xFFC62828),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 13,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 4),
           const Text(
-            'Toca para sumar stock · «Agregar material» para uno nuevo con tu foto',
+            'Toca un material para agregar stock o eliminarlo',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 10, color: DtflyTheme.textSecondary),
           ),
           const SizedBox(height: 8),
           StreamBuilder(
-            stream: InventarioService.streamMateriales(),
+            stream: InventarioService.streamMaterialesDeporte(deporteId),
             builder: (context, snap) {
               if (snap.connectionState == ConnectionState.waiting) {
                 return const Padding(
@@ -108,6 +198,11 @@ class UtileroKioscoStockTab extends StatelessWidget {
                         Builder(builder: (context) {
                           final img = UtileroInventarioKiosco
                               .imagenDeCategoria(mats, cat);
+                          final enCat =
+                              UtileroInventarioKiosco.materialesEnCategoria(
+                            mats,
+                            cat,
+                          );
                           return SizedBox(
                           width: itemWidth,
                           height: itemHeight,
@@ -120,16 +215,34 @@ class UtileroKioscoStockTab extends StatelessWidget {
                             categoria: cat,
                             imagenUrl: img.url,
                             imagenBase64: img.base64,
+                            mostrarEliminar: enCat.isNotEmpty,
                             onTap: () {
-                              UtileroIngresarStockDialog.mostrarPorCategoria(
-                                context,
-                                categoria: cat,
-                                usuarioId: usuarioId,
-                                disponible: stock[cat.id] ?? 0,
-                                total: total[cat.id] ?? 0,
-                                imagenUrl: img.url,
-                                imagenBase64: img.base64,
-                              );
+                              if (enCat.isEmpty) {
+                                UtileroIngresarStockDialog.mostrarPorCategoria(
+                                  context,
+                                  categoria: cat,
+                                  usuarioId: usuarioId,
+                                  deporteId: deporteId,
+                                  disponible: stock[cat.id] ?? 0,
+                                  total: total[cat.id] ?? 0,
+                                  imagenUrl: img.url,
+                                  imagenBase64: img.base64,
+                                );
+                              } else if (enCat.length == 1) {
+                                UtileroMaterialAccionesSheet.mostrar(
+                                  context,
+                                  material: enCat.first,
+                                  usuarioId: usuarioId,
+                                );
+                              } else {
+                                UtileroMaterialesCategoriaSheet.mostrar(
+                                  context,
+                                  categoria: cat,
+                                  materiales: enCat,
+                                  usuarioId: usuarioId,
+                                  deporteId: deporteId,
+                                );
+                              }
                             },
                           ),
                         );
@@ -148,8 +261,8 @@ class UtileroKioscoStockTab extends StatelessWidget {
                                 .firstWhere((c) => c.id == 'mas'),
                             imagenUrl: m.imagenUrl,
                             imagenBase64: m.imagenBase64,
-                            onTap: () =>
-                                UtileroIngresarStockDialog.mostrarPorMaterial(
+                            mostrarEliminar: true,
+                            onTap: () => UtileroMaterialAccionesSheet.mostrar(
                               context,
                               material: m,
                               usuarioId: usuarioId,
@@ -177,6 +290,7 @@ class _InventarioMiniCard extends StatelessWidget {
     required this.stockBajo,
     required this.categoria,
     required this.onTap,
+    this.mostrarEliminar = false,
     this.imagenUrl,
     this.imagenBase64,
   });
@@ -189,6 +303,7 @@ class _InventarioMiniCard extends StatelessWidget {
   final String? imagenUrl;
   final String? imagenBase64;
   final VoidCallback onTap;
+  final bool mostrarEliminar;
 
   @override
   Widget build(BuildContext context) {
@@ -277,11 +392,21 @@ class _InventarioMiniCard extends StatelessWidget {
                   ],
                 ),
               ),
-              const Icon(
-                Icons.add_circle_outline,
-                size: 14,
-                color: DtflyTheme.textSecondary,
-              ),
+              if (mostrarEliminar)
+                const Padding(
+                  padding: EdgeInsets.only(left: 2),
+                  child: Icon(
+                    Icons.delete_outline,
+                    size: 14,
+                    color: Color(0xFFC62828),
+                  ),
+                )
+              else
+                const Icon(
+                  Icons.touch_app_outlined,
+                  size: 14,
+                  color: DtflyTheme.textSecondary,
+                ),
             ],
           ),
         ),
@@ -291,9 +416,16 @@ class _InventarioMiniCard extends StatelessWidget {
 }
 
 class UtileroKioscoStockScreen extends StatelessWidget {
-  const UtileroKioscoStockScreen({super.key, required this.usuarioId});
+  const UtileroKioscoStockScreen({
+    super.key,
+    required this.usuarioId,
+    this.deporteId,
+    this.onCambiarSeleccion,
+  });
 
   final String usuarioId;
+  final String? deporteId;
+  final VoidCallback? onCambiarSeleccion;
 
   @override
   Widget build(BuildContext context) {
@@ -304,7 +436,11 @@ class UtileroKioscoStockScreen extends StatelessWidget {
         backgroundColor: const Color(0xFFC62828),
         foregroundColor: Colors.white,
       ),
-      body: UtileroKioscoStockTab(usuarioId: usuarioId),
+      body: UtileroKioscoStockTab(
+        usuarioId: usuarioId,
+        deporteId: deporteId,
+        onCambiarSeleccion: onCambiarSeleccion,
+      ),
     );
   }
 }

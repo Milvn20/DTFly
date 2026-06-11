@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/core/app_roles.dart';
+import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/models/entrenamiento.dart';
 import 'package:flutter_application_1/models/nota_dt.dart';
 import 'package:flutter_application_1/models/partido.dart';
@@ -19,7 +20,9 @@ import 'package:flutter_application_1/screens/inventario/inventario_screen.dart'
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_home.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_prestamos_tab.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_stock_screen.dart';
+import 'package:flutter_application_1/screens/utilero/utilero_modulos_screens.dart';
 import 'package:flutter_application_1/screens/utilero/utilero_mas_tab.dart';
+import 'package:flutter_application_1/screens/utilero/utilero_seleccion_deporte_screen.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 import 'package:flutter_application_1/screens/jugador/jugador_ficha_screen.dart';
 import 'package:flutter_application_1/screens/jugador/jugador_inicio_tab.dart';
@@ -63,12 +66,14 @@ class RoleMainShell extends StatefulWidget {
 
 class _RoleMainShellState extends State<RoleMainShell> {
   int _index = 0;
+  String? _deporteUtilero;
   Timer? _timerRotacionCodigo;
   StreamSubscription<Entrenamiento?>? _subSesionActiva;
 
   @override
   void initState() {
     super.initState();
+    _deporteUtilero = widget.categoriaDeportiva;
     if (AppRoles.normalize(widget.rol) == AppRoles.entrenador) {
       _subSesionActiva =
           EntrenamientoService.streamActivo(widget.usuarioEmail).listen((activo) {
@@ -97,6 +102,31 @@ class _RoleMainShellState extends State<RoleMainShell> {
           orElse: () => '',
         );
     return p.isEmpty ? 'Usuario' : p;
+  }
+
+  Future<void> _cambiarSeleccionUtilero() async {
+    final elegido = await Navigator.push<String>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => UtileroSeleccionDeporteScreen(
+          nombre: widget.nombre,
+          usuarioEmail: widget.usuarioEmail,
+          usuarioId: widget.usuarioId,
+          modoCambio: true,
+          deporteActual: _deporteUtilero,
+        ),
+      ),
+    );
+    if (elegido == null || !mounted) return;
+    setState(() => _deporteUtilero = elegido);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          'Viendo inventario de ${DeportesCategoria.nombreVisible(elegido)}',
+        ),
+      ),
+    );
   }
 
   @override
@@ -132,6 +162,7 @@ class _RoleMainShellState extends State<RoleMainShell> {
                 onPressed: () => UtileroAgregarMaterialDialog.mostrar(
                   context,
                   usuarioId: widget.usuarioId,
+                  deporteId: _deporteUtilero,
                 ),
                 backgroundColor: Colors.white,
                 foregroundColor: const Color(0xFFC62828),
@@ -338,18 +369,53 @@ class _RoleMainShellState extends State<RoleMainShell> {
             usuarioId: widget.usuarioId,
             usuarioEmail: widget.usuarioEmail,
             nombre: widget.nombre,
+            deporteId: _deporteUtilero,
             onIrInventario: () => setState(() => _index = 1),
             onIrPrestamos: () => setState(() => _index = 2),
+            onCambiarSeleccion: _cambiarSeleccionUtilero,
+            onIrMas: () {
+              Navigator.push<void>(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => UtileroHerramientasScreen(
+                    usuarioId: widget.usuarioId,
+                    usuarioEmail: widget.usuarioEmail,
+                    nombre: widget.nombre,
+                    deporteId: _deporteUtilero,
+                  ),
+                ),
+              );
+            },
+            onAgregarMaterial: () => UtileroAgregarMaterialDialog.mostrar(
+              context,
+              usuarioId: widget.usuarioId,
+              deporteId: _deporteUtilero,
+            ),
+            onCerrarSesion: () async {
+              await UtileroService.registrarAuditoriaSesion(
+                utileroId: widget.usuarioId,
+                esInicio: false,
+              );
+              _irALogin();
+            },
           ),
-          UtileroKioscoStockTab(usuarioId: widget.usuarioId),
+          UtileroKioscoStockTab(
+            usuarioId: widget.usuarioId,
+            deporteId: _deporteUtilero,
+            onCambiarSeleccion: _cambiarSeleccionUtilero,
+          ),
           UtileroKioscoPrestamosTab(
             usuarioId: widget.usuarioId,
             usuarioEmail: widget.usuarioEmail,
+            deporteId: _deporteUtilero,
+            onCambiarSeleccion: _cambiarSeleccionUtilero,
           ),
           UtileroMasTab(
             usuarioId: widget.usuarioId,
             usuarioEmail: widget.usuarioEmail,
             nombre: widget.nombre,
+            deporteId: _deporteUtilero,
+            onCambiarSeleccion: _cambiarSeleccionUtilero,
             onCerrarSesion: () async {
               await UtileroService.registrarAuditoriaSesion(
                 utileroId: widget.usuarioId,

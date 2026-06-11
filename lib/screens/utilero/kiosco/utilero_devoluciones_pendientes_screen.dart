@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/core/utilero_material.dart';
+import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/models/prestamo_material.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_flujo_screen.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
@@ -13,10 +14,12 @@ class UtileroDevolucionesPendientesScreen extends StatelessWidget {
     super.key,
     required this.usuarioId,
     required this.usuarioEmail,
+    this.deporteId,
   });
 
   final String usuarioId;
   final String usuarioEmail;
+  final String? deporteId;
 
   String _fechaCorta(DateTime d) {
     if (d.millisecondsSinceEpoch <= 0) return '—';
@@ -33,8 +36,87 @@ class UtileroDevolucionesPendientesScreen extends StatelessWidget {
           flujo: UtileroFlujoKiosco.devolver,
           usuarioId: usuarioId,
           usuarioEmail: usuarioEmail,
+          deporteId: deporteId,
         ),
       ),
+    );
+  }
+
+  Widget _buildLista(BuildContext context, List<PrestamoMaterial> lista) {
+    if (lista.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(
+                Icons.check_circle_outline,
+                size: 56,
+                color: DtflyTheme.success,
+              ),
+              const SizedBox(height: 12),
+              const Text(
+                'No hay devoluciones pendientes',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              FilledButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Volver'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final agrupado = <String, List<PrestamoMaterial>>{};
+    for (final p in lista) {
+      agrupado.putIfAbsent(p.materialNombre, () => []).add(p);
+    }
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+      children: [
+        Text(
+          '${lista.length} préstamo(s) por devolver',
+          style: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 16,
+          ),
+        ),
+        const SizedBox(height: 12),
+        for (final entry in agrupado.entries) ...[
+          _ResumenMaterial(
+            materialNombre: entry.key,
+            prestamos: entry.value,
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 8),
+        for (final p in lista) ...[
+          _PrestamoPendienteTile(
+            prestamo: p,
+            fecha: _fechaCorta(p.prestadoEn),
+          ),
+          const SizedBox(height: 8),
+        ],
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: () => _irADevolver(context),
+          icon: const Icon(Icons.assignment_return),
+          label: const Text('Registrar devolución'),
+          style: FilledButton.styleFrom(
+            backgroundColor: const Color(0xFFC62828),
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+        ),
+      ],
     );
   }
 
@@ -60,81 +142,15 @@ class UtileroDevolucionesPendientesScreen extends StatelessWidget {
                 child: CircularProgressIndicator(color: Color(0xFFC62828)),
               );
             }
-            final lista = snap.data ?? [];
-            if (lista.isEmpty) {
-              return Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.check_circle_outline,
-                        size: 56,
-                        color: DtflyTheme.success,
-                      ),
-                      const SizedBox(height: 12),
-                      const Text(
-                        'No hay devoluciones pendientes',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 20),
-                      FilledButton(
-                        onPressed: () => Navigator.pop(context),
-                        child: const Text('Volver'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            final agrupado = <String, List<PrestamoMaterial>>{};
-            for (final p in lista) {
-              agrupado.putIfAbsent(p.materialNombre, () => []).add(p);
-            }
-
-            return ListView(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
-              children: [
-                Text(
-                  '${lista.length} préstamo(s) por devolver',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                for (final entry in agrupado.entries) ...[
-                  _ResumenMaterial(
-                    materialNombre: entry.key,
-                    prestamos: entry.value,
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                const SizedBox(height: 8),
-                for (final p in lista) ...[
-                  _PrestamoPendienteTile(
-                    prestamo: p,
-                    fecha: _fechaCorta(p.prestadoEn),
-                  ),
-                  const SizedBox(height: 8),
-                ],
-                const SizedBox(height: 12),
-                FilledButton.icon(
-                  onPressed: () => _irADevolver(context),
-                  icon: const Icon(Icons.assignment_return),
-                  label: const Text('Registrar devolución'),
-                  style: FilledButton.styleFrom(
-                    backgroundColor: const Color(0xFFC62828),
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                  ),
-                ),
-              ],
+            return StreamBuilder<List<MaterialInventario>>(
+              stream: InventarioService.streamMaterialesDeporte(deporteId),
+              builder: (context, matSnap) {
+                final todos = snap.data ?? [];
+                final matIds = (matSnap.data ?? []).map((m) => m.id).toSet();
+                final lista =
+                    todos.where((p) => matIds.contains(p.materialId)).toList();
+                return _buildLista(context, lista);
+              },
             );
           },
         ),

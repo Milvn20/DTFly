@@ -3,6 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'package:flutter_application_1/core/deportes_categoria.dart';
+import 'package:flutter_application_1/core/utilero_imagen_comprimir.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
@@ -12,9 +14,11 @@ class UtileroAgregarMaterialScreen extends StatefulWidget {
   const UtileroAgregarMaterialScreen({
     super.key,
     required this.usuarioId,
+    this.deporteId,
   });
 
   final String usuarioId;
+  final String? deporteId;
 
   @override
   State<UtileroAgregarMaterialScreen> createState() =>
@@ -39,14 +43,15 @@ class _UtileroAgregarMaterialScreenState
     try {
       final img = await ImagePicker().pickImage(
         source: ImageSource.gallery,
-        maxWidth: 480,
-        maxHeight: 480,
-        imageQuality: 75,
+        maxWidth: 256,
+        maxHeight: 256,
+        imageQuality: 60,
       );
       if (img == null) return;
       final bytes = await img.readAsBytes();
+      final mini = await comprimirImagenInventario(bytes);
       if (!mounted) return;
-      setState(() => _fotoBytes = bytes);
+      setState(() => _fotoBytes = mini);
     } catch (e) {
       if (!mounted) return;
       _mensaje('No se pudo abrir la galería: $e', error: true);
@@ -79,23 +84,30 @@ class _UtileroAgregarMaterialScreenState
       return;
     }
 
+    final deporteId = widget.deporteId?.trim();
+    if (deporteId == null || deporteId.isEmpty) {
+      _mensaje('Selecciona una disciplina antes de agregar material', error: true);
+      return;
+    }
+
     setState(() => _guardando = true);
     try {
       await InventarioService.agregarMaterialPersonalizado(
         nombre: nombre,
         cantidad: cantidad,
         imagenBytes: _fotoBytes!,
+        deporteId: deporteId,
       );
-      await UtileroService.registrarActividad(
+      if (!mounted) return;
+      _mensaje('«$nombre» agregado al inventario');
+      Navigator.pop(context, true);
+      UtileroService.registrarActividad(
         utileroId: widget.usuarioId,
         accion: 'Registró material',
         descripcion: '$nombre (personalizado)',
         material: nombre,
         cantidad: cantidad,
       );
-      if (!mounted) return;
-      _mensaje('«$nombre» agregado al inventario');
-      Navigator.pop(context, true);
     } catch (e) {
       if (mounted) {
         _mensaje('$e', error: true);
@@ -124,10 +136,13 @@ class _UtileroAgregarMaterialScreenState
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 6),
-            const Text(
-              'Sube la foto de tu dispositivo. Esa imagen será el ícono '
-              'del material en el inventario, junto a balones, conos, etc.',
-              style: TextStyle(color: DtflyTheme.textSecondary, height: 1.35),
+            Text(
+              widget.deporteId != null && widget.deporteId!.isNotEmpty
+                  ? 'Se guardará solo en ${DeportesCategoria.nombreVisible(widget.deporteId)}. '
+                      'Sube la foto de tu dispositivo; será el ícono del material.'
+                  : 'Sube la foto de tu dispositivo. Esa imagen será el ícono '
+                      'del material en el inventario, junto a balones, conos, etc.',
+              style: const TextStyle(color: DtflyTheme.textSecondary, height: 1.35),
             ),
             const SizedBox(height: 20),
             Center(
