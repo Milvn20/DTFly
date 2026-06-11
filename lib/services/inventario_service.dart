@@ -1,4 +1,7 @@
+import 'dart:typed_data';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 
 import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/models/prestamo_material.dart';
@@ -36,21 +39,43 @@ class InventarioService {
     );
   }
 
-  static Future<void> agregarMaterial({
+  static Future<String> agregarMaterial({
     required String nombre,
     required String categoria,
     required int cantidad,
     String unidad = 'unidad',
+    String? imagenUrl,
   }) async {
-    await _db.collection(_colMateriales).add({
+    final ref = await _db.collection(_colMateriales).add({
       'nombre': nombre,
       'categoria': categoria,
       'cantidadTotal': cantidad,
       'cantidadDisponible': cantidad,
       'cantidadDanada': 0,
       'unidad': unidad,
+      if (imagenUrl != null && imagenUrl.isNotEmpty) 'imagenUrl': imagenUrl,
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
+    return ref.id;
+  }
+
+  static Future<String> subirImagenMaterial({
+    required String materialId,
+    required Uint8List bytes,
+  }) async {
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('inventario/$materialId.jpg');
+    await storageRef.putData(
+      bytes,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final url = await storageRef.getDownloadURL();
+    await _db.collection(_colMateriales).doc(materialId).update({
+      'imagenUrl': url,
+      'actualizadoEn': FieldValue.serverTimestamp(),
+    });
+    return url;
   }
 
   static Future<void> actualizarCantidad({

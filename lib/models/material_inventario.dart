@@ -18,6 +18,7 @@ class MaterialInventario {
     required this.cantidadDanada,
     required this.unidad,
     required this.actualizadoEn,
+    this.imagenUrl,
   });
 
   final String id;
@@ -28,6 +29,7 @@ class MaterialInventario {
   final int cantidadDanada;
   final String unidad;
   final DateTime? actualizadoEn;
+  final String? imagenUrl;
 
   /// Unidades actualmente en préstamo/entrega.
   int get prestados {
@@ -57,6 +59,7 @@ class MaterialInventario {
       cantidadDanada: danada,
       unidad: d['unidad'] as String? ?? 'unidad',
       actualizadoEn: ts?.toDate(),
+      imagenUrl: d['imagenUrl'] as String?,
     );
   }
 }

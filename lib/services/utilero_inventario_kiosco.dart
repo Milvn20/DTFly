@@ -34,6 +34,29 @@ class UtileroInventarioKiosco {
     return map;
   }
 
+  /// Primera imagen personalizada encontrada en una categoría.
+  static String? imagenDeCategoria(
+    List<MaterialInventario> mats,
+    UtileroMaterialCat cat,
+  ) {
+    for (final m in mats) {
+      if (_resolverMaterial(m) != cat) continue;
+      final url = m.imagenUrl?.trim();
+      if (url != null && url.isNotEmpty) return url;
+    }
+    return null;
+  }
+
+  /// Materiales con foto propia (se listan aparte en inventario).
+  static List<MaterialInventario> materialesConImagen(
+    List<MaterialInventario> mats,
+  ) {
+    return mats
+        .where((m) => m.imagenUrl != null && m.imagenUrl!.trim().isNotEmpty)
+        .toList()
+      ..sort((a, b) => a.nombre.compareTo(b.nombre));
+  }
+
   static Future<List<MaterialInventario>> materialesDeCategoria(
     UtileroMaterialCat cat,
   ) async {
