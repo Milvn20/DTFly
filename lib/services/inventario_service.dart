@@ -1,6 +1,8 @@
+import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import 'package:flutter_application_1/models/material_inventario.dart';
@@ -45,7 +47,20 @@ class InventarioService {
     required int cantidad,
     String unidad = 'unidad',
     String? imagenUrl,
+    Uint8List? imagenBytes,
   }) async {
+    var url = imagenUrl?.trim();
+    String? imagenBase64;
+    if (imagenBytes != null && imagenBytes.isNotEmpty) {
+      imagenBase64 = base64Encode(imagenBytes);
+      if (url == null || url.isEmpty) {
+        try {
+          url = await _subirImagenInventario(imagenBytes);
+        } catch (e) {
+          debugPrint('Storage inventario (opcional): $e');
+        }
+      }
+    }
     final ref = await _db.collection(_colMateriales).add({
       'nombre': nombre,
       'categoria': categoria,
@@ -53,29 +68,88 @@ class InventarioService {
       'cantidadDisponible': cantidad,
       'cantidadDanada': 0,
       'unidad': unidad,
-      if (imagenUrl != null && imagenUrl.isNotEmpty) 'imagenUrl': imagenUrl,
+      if (url != null && url.isNotEmpty) 'imagenUrl': url,
+      if (imagenBase64 != null && imagenBase64.isNotEmpty)
+        'imagenBase64': imagenBase64,
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
     return ref.id;
+  }
+
+  /// Material creado por el utilero con foto propia (siempre en Firestore).
+  static Future<String> agregarMaterialPersonalizado({
+    required String nombre,
+    required int cantidad,
+    required Uint8List imagenBytes,
+  }) async {
+    final limpio = nombre.trim();
+    if (limpio.isEmpty) {
+      throw StateError('Ingresa el nombre del material');
+    }
+    if (cantidad <= 0) {
+      throw StateError('Ingresa una cantidad mayor a cero');
+    }
+    if (imagenBytes.isEmpty) {
+      throw StateError('Selecciona una foto del material');
+    }
+
+    final imagenBase64 = base64Encode(imagenBytes);
+    if (imagenBase64.length > 750000) {
+      throw StateError(
+        'La foto es muy pesada. Elige una imagen más pequeña.',
+      );
+    }
+
+    final ref = await _db.collection(_colMateriales).add({
+      'nombre': limpio,
+      'categoria': 'General',
+      'cantidadTotal': cantidad,
+      'cantidadDisponible': cantidad,
+      'cantidadDanada': 0,
+      'unidad': 'unidad',
+      'imagenBase64': imagenBase64,
+      'esPersonalizado': true,
+      'actualizadoEn': FieldValue.serverTimestamp(),
+    });
+
+    try {
+      final url = await _subirImagenInventario(imagenBytes);
+      await ref.update({'imagenUrl': url});
+    } catch (e) {
+      debugPrint('Storage inventario (opcional): $e');
+    }
+
+    return ref.id;
+  }
+
+  static Future<String> _subirImagenInventario(Uint8List bytes) async {
+    final path =
+        'inventario/${DateTime.now().millisecondsSinceEpoch}_${bytes.length}.jpg';
+    final storageRef = FirebaseStorage.instance.ref(path);
+    await storageRef.putData(
+      bytes,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    return storageRef.getDownloadURL();
   }
 
   static Future<String> subirImagenMaterial({
     required String materialId,
     required Uint8List bytes,
   }) async {
-    final storageRef = FirebaseStorage.instance
-        .ref()
-        .child('inventario/$materialId.jpg');
-    await storageRef.putData(
-      bytes,
-      SettableMetadata(contentType: 'image/jpeg'),
-    );
-    final url = await storageRef.getDownloadURL();
+    final imagenBase64 = base64Encode(bytes);
+    String? url;
+    try {
+      url = await _subirImagenInventario(bytes);
+    } catch (e) {
+      debugPrint('Storage inventario (opcional): $e');
+    }
     await _db.collection(_colMateriales).doc(materialId).update({
-      'imagenUrl': url,
+      'imagenBase64': imagenBase64,
+      if (url != null && url.isNotEmpty) 'imagenUrl': url,
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
-    return url;
+    return url ?? '';
   }
 
   static Future<void> actualizarCantidad({

@@ -51,7 +51,7 @@ class UtileroKioscoPrestamosTab extends StatelessWidget {
           _AccionTile(
             emoji: '➕',
             titulo: 'Agregar material nuevo',
-            subtitulo: 'Escaleras, otros implementos…',
+            subtitulo: 'Con foto desde tu dispositivo',
             onTap: () => UtileroAgregarMaterialDialog.mostrar(
               context,
               usuarioId: usuarioId,

@@ -302,44 +302,79 @@ class UtileroKioscoMaterialCard extends StatelessWidget {
     required this.categoria,
     required this.onTap,
     this.seleccionado = false,
+    this.subtitulo,
+    this.imagenUrl,
+    this.imagenBase64,
+    this.compacto = true,
   });
 
   final UtileroMaterialCat categoria;
   final VoidCallback onTap;
   final bool seleccionado;
+  final String? subtitulo;
+  final String? imagenUrl;
+  final String? imagenBase64;
+  final bool compacto;
 
   @override
   Widget build(BuildContext context) {
+    final iconSize = compacto ? 22.0 : 40.0;
+    final fontSize = compacto ? 11.0 : 18.0;
+    final padding = compacto ? 8.0 : 16.0;
     return Material(
       color: seleccionado ? categoria.color.withValues(alpha: 0.12) : DtflyTheme.surfaceCard,
-      borderRadius: DtflyTheme.borderRadius,
-      elevation: seleccionado ? 4 : 2,
+      borderRadius: BorderRadius.circular(compacto ? 10 : 14),
+      elevation: seleccionado ? 3 : 1,
       child: InkWell(
-        borderRadius: DtflyTheme.borderRadius,
+        borderRadius: BorderRadius.circular(compacto ? 10 : 14),
         onTap: onTap,
         child: Container(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.all(padding),
           decoration: BoxDecoration(
-            borderRadius: DtflyTheme.borderRadius,
+            borderRadius: BorderRadius.circular(compacto ? 10 : 14),
             border: Border.all(
               color: seleccionado ? categoria.color : DtflyTheme.borderSubtle,
-              width: seleccionado ? 2.5 : 1,
+              width: seleccionado ? 2 : 1,
             ),
           ),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              UtileroMaterialIcon(categoria: categoria, size: 40),
-              const SizedBox(height: 8),
+              UtileroMaterialIcon(
+                categoria: categoria,
+                size: iconSize,
+                imagenUrl: imagenUrl,
+                imagenBase64: imagenBase64,
+              ),
+              SizedBox(height: compacto ? 4 : 8),
               Text(
                 categoria.nombre,
                 textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  fontSize: 18,
+                  fontSize: fontSize,
                   fontWeight: FontWeight.bold,
                   color: seleccionado ? categoria.color : DtflyTheme.textPrimary,
+                  height: 1.1,
                 ),
               ),
+              if (subtitulo != null && subtitulo!.isNotEmpty) ...[
+                const SizedBox(height: 3),
+                Text(
+                  subtitulo!,
+                  textAlign: TextAlign.center,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: compacto ? 9 : 13,
+                    fontWeight: FontWeight.w600,
+                    color: subtitulo!.toLowerCase().contains('devolver')
+                        ? const Color(0xFFC62828)
+                        : DtflyTheme.textSecondary,
+                  ),
+                ),
+              ],
             ],
           ),
         ),

@@ -1,0 +1,17 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /inventario/{fileName} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /blog/{fileName} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /utileros/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}

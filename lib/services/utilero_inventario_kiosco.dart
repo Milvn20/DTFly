@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_application_1/core/app_roles.dart';
 import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
+import 'package:flutter_application_1/models/prestamo_material.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 
@@ -19,6 +20,7 @@ class UtileroInventarioKiosco {
   static Map<String, int> stockDesdeMateriales(List<MaterialInventario> mats) {
     final map = {for (final c in UtileroMaterialCat.todas) c.id: 0};
     for (final m in mats) {
+      if (esMaterialPersonalizado(m)) continue;
       final cat = _resolverMaterial(m);
       map[cat.id] = (map[cat.id] ?? 0) + m.cantidadDisponible;
     }
@@ -28,6 +30,7 @@ class UtileroInventarioKiosco {
   static Map<String, int> totalDesdeMateriales(List<MaterialInventario> mats) {
     final map = {for (final c in UtileroMaterialCat.todas) c.id: 0};
     for (final m in mats) {
+      if (esMaterialPersonalizado(m)) continue;
       final cat = _resolverMaterial(m);
       map[cat.id] = (map[cat.id] ?? 0) + m.cantidadTotal;
     }
@@ -35,16 +38,20 @@ class UtileroInventarioKiosco {
   }
 
   /// Primera imagen personalizada encontrada en una categoría.
-  static String? imagenDeCategoria(
+  static ({String? url, String? base64}) imagenDeCategoria(
     List<MaterialInventario> mats,
     UtileroMaterialCat cat,
   ) {
     for (final m in mats) {
       if (_resolverMaterial(m) != cat) continue;
+      final b64 = m.imagenBase64?.trim();
+      if (b64 != null && b64.isNotEmpty) {
+        return (url: m.imagenUrl, base64: b64);
+      }
       final url = m.imagenUrl?.trim();
-      if (url != null && url.isNotEmpty) return url;
+      if (url != null && url.isNotEmpty) return (url: url, base64: null);
     }
-    return null;
+    return (url: null, base64: null);
   }
 
   /// Materiales con foto propia (se listan aparte en inventario).
@@ -55,6 +62,58 @@ class UtileroInventarioKiosco {
         .where((m) => m.imagenUrl != null && m.imagenUrl!.trim().isNotEmpty)
         .toList()
       ..sort((a, b) => a.nombre.compareTo(b.nombre));
+  }
+
+  /// Material agregado por el utilero (foto propia / esPersonalizado).
+  static bool esMaterialPersonalizado(MaterialInventario m) {
+    if (m.esPersonalizado) return true;
+    final b64 = m.imagenBase64?.trim();
+    if (b64 != null && b64.isNotEmpty) return true;
+    if (m.tieneFotoPersonalizada && m.categoria == 'General') return true;
+    final cat = _resolverMaterial(m);
+    if (cat.id == 'mas' && m.categoria == 'General') return true;
+    return false;
+  }
+
+  static List<MaterialInventario> materialesAgregados(
+    List<MaterialInventario> mats,
+  ) {
+    return mats.where(esMaterialPersonalizado).toList()
+      ..sort((a, b) => a.nombre.compareTo(b.nombre));
+  }
+
+  /// Unidades en préstamo por categoría (para pantalla de devolución).
+  static Future<Map<String, int>> prestadosPorCategoria() async {
+    final activos = await InventarioService.streamPrestamosActivos().first;
+    final mats = await InventarioService.streamMateriales().first;
+    return _prestadosAgrupados(activos, mats).porCategoria;
+  }
+
+  /// Unidades en préstamo por id de material (personalizados).
+  static Future<Map<String, int>> prestadosPorMaterialId() async {
+    final activos = await InventarioService.streamPrestamosActivos().first;
+    final mats = await InventarioService.streamMateriales().first;
+    return _prestadosAgrupados(activos, mats).porMaterialId;
+  }
+
+  static ({Map<String, int> porCategoria, Map<String, int> porMaterialId})
+      _prestadosAgrupados(
+    List<PrestamoMaterial> activos,
+    List<MaterialInventario> mats,
+  ) {
+    final porCat = {for (final c in UtileroMaterialCat.todas) c.id: 0};
+    final porId = <String, int>{};
+    final matById = {for (final m in mats) m.id: m};
+
+    for (final p in activos) {
+      porId[p.materialId] = (porId[p.materialId] ?? 0) + p.cantidad;
+      final mat = matById[p.materialId];
+      final cat = mat != null
+          ? _resolverMaterial(mat)
+          : UtileroMaterialCat.resolver(p.materialNombre);
+      porCat[cat.id] = (porCat[cat.id] ?? 0) + p.cantidad;
+    }
+    return (porCategoria: porCat, porMaterialId: porId);
   }
 
   static Future<List<MaterialInventario>> materialesDeCategoria(
@@ -146,18 +205,30 @@ class UtileroInventarioKiosco {
     required UtileroMaterialCat cat,
     required int cantidad,
     required String utileroId,
+    String? materialId,
+    String? materialNombre,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
-    final mat = await asegurarMaterial(cat);
+    MaterialInventario? mat;
+    if (materialId != null) {
+      for (final m in await InventarioService.streamMateriales().first) {
+        if (m.id == materialId) {
+          mat = m;
+          break;
+        }
+      }
+    }
+    final destino = mat ?? await asegurarMaterial(cat);
+    final nombre = materialNombre ?? destino.nombre;
     await InventarioService.devolverCantidadMaterial(
-      materialId: mat.id,
+      materialId: destino.id,
       cantidad: cantidad,
     );
     await UtileroService.registrarActividad(
       utileroId: utileroId,
       accion: 'Devolución',
-      descripcion: '$cantidad ${cat.nombre.toLowerCase()} devueltos',
-      material: cat.nombre,
+      descripcion: '$cantidad ${nombre.toLowerCase()} devueltos',
+      material: nombre,
       cantidad: cantidad,
     );
   }

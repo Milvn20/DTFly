@@ -19,6 +19,8 @@ class MaterialInventario {
     required this.unidad,
     required this.actualizadoEn,
     this.imagenUrl,
+    this.imagenBase64,
+    this.esPersonalizado = false,
   });
 
   final String id;
@@ -30,6 +32,15 @@ class MaterialInventario {
   final String unidad;
   final DateTime? actualizadoEn;
   final String? imagenUrl;
+  final String? imagenBase64;
+  final bool esPersonalizado;
+
+  bool get tieneFotoPersonalizada {
+    final b64 = imagenBase64?.trim();
+    if (b64 != null && b64.isNotEmpty) return true;
+    final url = imagenUrl?.trim();
+    return url != null && url.isNotEmpty;
+  }
 
   /// Unidades actualmente en préstamo/entrega.
   int get prestados {
@@ -59,7 +70,9 @@ class MaterialInventario {
       cantidadDanada: danada,
       unidad: d['unidad'] as String? ?? 'unidad',
       actualizadoEn: ts?.toDate(),
-      imagenUrl: d['imagenUrl'] as String?,
+      imagenUrl: (d['imagenUrl'] ?? d['fotoUrl'] ?? d['imagen']) as String?,
+      imagenBase64: d['imagenBase64'] as String?,
+      esPersonalizado: d['esPersonalizado'] as bool? ?? false,
     );
   }
 }

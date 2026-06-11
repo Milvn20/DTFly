@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/core/utilero_material.dart';
+import 'package:flutter_application_1/models/material_inventario.dart';
+import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/utilero_kiosco_widgets.dart';
@@ -32,6 +34,11 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
   List<UtileroPersonaEntrega> _entrenadores = [];
   bool _cargandoPersonas = true;
   int _maxCantidad = 9999;
+  Map<String, int> _prestadosPorCat = {};
+  Map<String, int> _prestadosPorMaterialId = {};
+  List<MaterialInventario> _materialesAgregados = [];
+  String? _materialIdSeleccionado;
+  String? _materialNombreSeleccionado;
 
   bool get _esPrestar => widget.flujo == UtileroFlujoKiosco.prestar;
   bool get _esDevolver => widget.flujo == UtileroFlujoKiosco.devolver;
@@ -76,6 +83,22 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
     } else {
       _cargandoPersonas = false;
     }
+    if (_esDevolver) {
+      _cargarPrestados();
+    }
+  }
+
+  Future<void> _cargarPrestados() async {
+    final porCat = await UtileroInventarioKiosco.prestadosPorCategoria();
+    final porId = await UtileroInventarioKiosco.prestadosPorMaterialId();
+    final mats = await InventarioService.streamMateriales().first;
+    if (mounted) {
+      setState(() {
+        _prestadosPorCat = porCat;
+        _prestadosPorMaterialId = porId;
+        _materialesAgregados = UtileroInventarioKiosco.materialesAgregados(mats);
+      });
+    }
   }
 
   Future<void> _cargarEntrenadores() async {
@@ -88,7 +111,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
     }
   }
 
-  Future<void> _cargarMaxCantidad() async {
+  Future<void> _cargarMaxCantidad({int? prestadosDirecto}) async {
     if (_material == null) return;
     if (_esPrestar || _esDanado) {
       final stock = await UtileroInventarioKiosco.materialesDeCategoria(_material!);
@@ -98,7 +121,14 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
       }
       _maxCantidad = disp;
     } else if (_esDevolver) {
-      _maxCantidad = await UtileroInventarioKiosco.prestadosActivos(_material!);
+      if (prestadosDirecto != null) {
+        _maxCantidad = prestadosDirecto;
+      } else if (_materialIdSeleccionado != null) {
+        _maxCantidad = _prestadosPorMaterialId[_materialIdSeleccionado] ?? 0;
+      } else {
+        _maxCantidad = _prestadosPorCat[_material!.id] ??
+            await UtileroInventarioKiosco.prestadosActivos(_material!);
+      }
     } else {
       _maxCantidad = 9999;
     }
@@ -115,13 +145,20 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
 
   void _borrar() => setState(() => _cantidadStr = '');
 
-  void _avanzarMaterial(UtileroMaterialCat cat) async {
+  void _avanzarMaterial(
+    UtileroMaterialCat cat, {
+    String? materialId,
+    String? materialNombre,
+    int? prestadosDirecto,
+  }) async {
     setState(() {
       _material = cat;
+      _materialIdSeleccionado = materialId;
+      _materialNombreSeleccionado = materialNombre;
       _cantidadStr = '';
       _paso++;
     });
-    await _cargarMaxCantidad();
+    await _cargarMaxCantidad(prestadosDirecto: prestadosDirecto);
     if (mounted) setState(() {});
   }
 
@@ -164,6 +201,8 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
             cat: _material!,
             cantidad: _cantidad,
             utileroId: widget.usuarioId,
+            materialId: _materialIdSeleccionado,
+            materialNombre: _materialNombreSeleccionado,
           );
         case UtileroFlujoKiosco.danado:
           await UtileroInventarioKiosco.darDeBaja(
@@ -295,36 +334,110 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
     );
   }
 
+  String? _subtituloMaterial(UtileroMaterialCat cat) {
+    if (_esDevolver) {
+      final n = _prestadosPorCat[cat.id] ?? 0;
+      if (n > 0) return 'Devolver: $n';
+      return 'Sin préstamos';
+    }
+    return null;
+  }
+
   Widget _buildPasoMaterial() {
+    final columnas = MediaQuery.sizeOf(context).width >= 400 ? 3 : 2;
+    final cats = UtileroMaterialCat.todas.where((c) => c.id != 'mas').toList();
+
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       children: [
         UtileroKioscoPasos(
           pasoActual: _pasoVisual,
           totalPasos: _totalPasos,
           etiqueta: _etiquetaPaso,
         ),
-        const SizedBox(height: 20),
+        if (_esDevolver) ...[
+          const SizedBox(height: 10),
+          const Text(
+            'Selecciona qué hay que devolver',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: DtflyTheme.textSecondary,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+        const SizedBox(height: 12),
         GridView.count(
-          crossAxisCount: 2,
+          crossAxisCount: columnas,
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          childAspectRatio: 1.1,
-          children: UtileroMaterialCat.todas.map((cat) {
-            return UtileroKioscoMaterialCard(
-              categoria: cat,
-              onTap: () => _avanzarMaterial(cat),
+          mainAxisSpacing: 8,
+          crossAxisSpacing: 8,
+          childAspectRatio: 1.35,
+          children: cats.map((cat) {
+            final prestados = _prestadosPorCat[cat.id] ?? 0;
+            final deshabilitado = _esDevolver && prestados <= 0;
+            return Opacity(
+              opacity: deshabilitado ? 0.45 : 1,
+              child: UtileroKioscoMaterialCard(
+                categoria: cat,
+                subtitulo: _subtituloMaterial(cat),
+                onTap: deshabilitado
+                    ? () {}
+                    : () => _avanzarMaterial(
+                          cat,
+                          prestadosDirecto: _esDevolver ? prestados : null,
+                        ),
+              ),
             );
           }).toList(),
         ),
+        if (_materialesAgregados.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text(
+            'Materiales agregados',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          ..._materialesAgregados.map((m) {
+            final cat =
+                UtileroMaterialCat.todas.firstWhere((c) => c.id == 'mas');
+            final prestados = _prestadosPorMaterialId[m.id] ?? 0;
+            final deshabilitado = _esDevolver && prestados <= 0;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Opacity(
+                opacity: deshabilitado ? 0.45 : 1,
+                child: UtileroKioscoMaterialCard(
+                  categoria: cat,
+                  imagenUrl: m.imagenUrl,
+                  imagenBase64: m.imagenBase64,
+                  subtitulo: _esDevolver
+                      ? (prestados > 0
+                          ? 'Devolver: $prestados'
+                          : 'Sin préstamos')
+                      : '${m.nombre} · ${m.cantidadDisponible} disp.',
+                  onTap: deshabilitado
+                      ? () {}
+                      : () => _avanzarMaterial(
+                            cat,
+                            materialId: m.id,
+                            materialNombre: m.nombre,
+                            prestadosDirecto: _esDevolver ? prestados : null,
+                          ),
+                ),
+              ),
+            );
+          }),
+        ],
       ],
     );
   }
 
   Widget _buildPasoCantidad() {
     final cat = _material!;
+    final titulo = _materialNombreSeleccionado ?? cat.nombre;
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -337,23 +450,25 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
         Center(
           child: Column(
             children: [
-              UtileroMaterialIcon(categoria: cat, size: 48),
+              UtileroMaterialIcon(categoria: cat, size: 40),
               const SizedBox(height: 8),
               Text(
-                cat.nombre,
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                titulo,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               if (_maxCantidad < 9999)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(
                     _esDevolver
-                        ? 'En préstamo: $_maxCantidad'
+                        ? 'Hay que devolver: $_maxCantidad'
                         : 'Disponibles: $_maxCantidad',
-                    style: const TextStyle(
-                      fontSize: 16,
+                    style: TextStyle(
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
-                      color: DtflyTheme.textSecondary,
+                      color: _esDevolver
+                          ? const Color(0xFFC62828)
+                          : DtflyTheme.textSecondary,
                     ),
                   ),
                 ),

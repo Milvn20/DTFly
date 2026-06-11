@@ -10,7 +10,7 @@ import 'package:flutter_application_1/widgets/utilero_agregar_material_dialog.da
 import 'package:flutter_application_1/widgets/utilero_ingresar_stock_dialog.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
 
-/// Pestaña Inventario — grid compacto de stock por categoría.
+/// Pestaña Inventario — grid compacto de stock por categoría y materiales «Más».
 class UtileroKioscoStockTab extends StatelessWidget {
   const UtileroKioscoStockTab({super.key, required this.usuarioId});
 
@@ -62,7 +62,7 @@ class UtileroKioscoStockTab extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Toca un material para agregar stock · «Más» para foto propia',
+            'Toca para sumar stock · «Agregar material» para uno nuevo con tu foto',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 10, color: DtflyTheme.textSecondary),
           ),
@@ -88,66 +88,77 @@ class UtileroKioscoStockTab extends StatelessWidget {
               final mats = snap.data ?? [];
               final stock = UtileroInventarioKiosco.stockDesdeMateriales(mats);
               final total = UtileroInventarioKiosco.totalDesdeMateriales(mats);
-              final conFoto =
-                  UtileroInventarioKiosco.materialesConImagen(mats);
+              final agregados =
+                  UtileroInventarioKiosco.materialesAgregados(mats);
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  LayoutBuilder(
-                    builder: (context, constraints) {
-                      const spacing = 6.0;
-                      final cols = constraints.maxWidth >= 500 ? 4 : 3;
-                      final itemWidth =
-                          (constraints.maxWidth - spacing * (cols - 1)) / cols;
-                      const itemHeight = 72.0;
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  const spacing = 6.0;
+                  final cols = constraints.maxWidth >= 500 ? 4 : 3;
+                  final itemWidth =
+                      (constraints.maxWidth - spacing * (cols - 1)) / cols;
+                  const itemHeight = 72.0;
 
-                      return Wrap(
-                        spacing: spacing,
-                        runSpacing: spacing,
-                        children: [
+                  return Wrap(
+                    spacing: spacing,
+                    runSpacing: spacing,
+                    children: [
                           for (final cat in UtileroMaterialCat.todas
                               .where((c) => c.id != 'mas'))
-                            SizedBox(
-                              width: itemWidth,
-                              height: itemHeight,
-                              child: _StockCardCompacta(
-                                cat: cat,
+                        Builder(builder: (context) {
+                          final img = UtileroInventarioKiosco
+                              .imagenDeCategoria(mats, cat);
+                          return SizedBox(
+                          width: itemWidth,
+                          height: itemHeight,
+                          child: _InventarioMiniCard(
+                            titulo: cat.nombre,
+                            tituloColor: cat.color,
+                            disponible: stock[cat.id] ?? 0,
+                            stockBajo: (stock[cat.id] ?? 0) <=
+                                UtileroMaterialCat.umbralStockBajo,
+                            categoria: cat,
+                            imagenUrl: img.url,
+                            imagenBase64: img.base64,
+                            onTap: () {
+                              UtileroIngresarStockDialog.mostrarPorCategoria(
+                                context,
+                                categoria: cat,
                                 usuarioId: usuarioId,
                                 disponible: stock[cat.id] ?? 0,
                                 total: total[cat.id] ?? 0,
-                                stockBajo: (stock[cat.id] ?? 0) <=
-                                    UtileroMaterialCat.umbralStockBajo,
-                                imagenUrl: UtileroInventarioKiosco
-                                    .imagenDeCategoria(mats, cat),
-                              ),
+                                imagenUrl: img.url,
+                                imagenBase64: img.base64,
+                              );
+                            },
+                          ),
+                        );
+                        }),
+                      for (final m in agregados)
+                        SizedBox(
+                          width: itemWidth,
+                          height: itemHeight,
+                          child: _InventarioMiniCard(
+                            titulo: m.nombre,
+                            tituloColor: const Color(0xFF6C757D),
+                            disponible: m.cantidadDisponible,
+                            stockBajo: m.cantidadDisponible <=
+                                UtileroMaterialCat.umbralStockBajo,
+                            categoria: UtileroMaterialCat.todas
+                                .firstWhere((c) => c.id == 'mas'),
+                            imagenUrl: m.imagenUrl,
+                            imagenBase64: m.imagenBase64,
+                            onTap: () =>
+                                UtileroIngresarStockDialog.mostrarPorMaterial(
+                              context,
+                              material: m,
+                              usuarioId: usuarioId,
                             ),
-                        ],
-                      );
-                    },
-                  ),
-                  if (conFoto.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    const Text(
-                      'Materiales con foto',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.bold,
-                        color: DtflyTheme.textSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    ...conFoto.map(
-                      (m) => Padding(
-                        padding: const EdgeInsets.only(bottom: 5),
-                        child: _MaterialConFotoFila(
-                          material: m,
-                          usuarioId: usuarioId,
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ],
+                    ],
+                  );
+                },
               );
             },
           ),
@@ -157,33 +168,27 @@ class UtileroKioscoStockTab extends StatelessWidget {
   }
 }
 
-class _StockCardCompacta extends StatelessWidget {
-  const _StockCardCompacta({
-    required this.cat,
-    required this.usuarioId,
+/// Tarjeta compacta unificada (categorías estándar y materiales «Más»).
+class _InventarioMiniCard extends StatelessWidget {
+  const _InventarioMiniCard({
+    required this.titulo,
+    required this.tituloColor,
     required this.disponible,
-    required this.total,
     required this.stockBajo,
+    required this.categoria,
+    required this.onTap,
     this.imagenUrl,
+    this.imagenBase64,
   });
 
-  final UtileroMaterialCat cat;
-  final String usuarioId;
+  final String titulo;
+  final Color tituloColor;
   final int disponible;
-  final int total;
   final bool stockBajo;
+  final UtileroMaterialCat categoria;
   final String? imagenUrl;
-
-  void _abrirAgregarStock(BuildContext context) {
-    UtileroIngresarStockDialog.mostrarPorCategoria(
-      context,
-      categoria: cat,
-      usuarioId: usuarioId,
-      disponible: disponible,
-      total: total,
-      imagenUrl: imagenUrl,
-    );
-  }
+  final String? imagenBase64;
+  final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
@@ -191,182 +196,94 @@ class _StockCardCompacta extends StatelessWidget {
       color: Colors.white,
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
-        onTap: () => _abrirAgregarStock(context),
+        onTap: onTap,
         borderRadius: BorderRadius.circular(10),
         child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: stockBajo ? const Color(0xFFC62828) : DtflyTheme.borderSubtle,
-          width: stockBajo ? 1.2 : 0.8,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 3,
-            offset: const Offset(0, 1),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          UtileroMaterialIcon(
-            categoria: cat,
-            size: 18,
-            imagenUrl: imagenUrl,
-          ),
-          const SizedBox(width: 5),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  cat.nombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 9,
-                    fontWeight: FontWeight.bold,
-                    color: cat.color,
-                  ),
-                ),
-                const SizedBox(height: 1),
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
-                  children: [
-                    Text(
-                      '$disponible',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: stockBajo
-                            ? const Color(0xFFC62828)
-                            : DtflyTheme.textPrimary,
-                        height: 1,
-                      ),
-                    ),
-                    const SizedBox(width: 2),
-                    const Text(
-                      'disp.',
-                      style: TextStyle(
-                        fontSize: 8,
-                        color: DtflyTheme.textSecondary,
-                      ),
-                    ),
-                  ],
-                ),
-                if (stockBajo)
-                  const Text(
-                    'BAJO',
-                    style: TextStyle(
-                      color: Color(0xFFC62828),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 7,
-                    ),
-                  ),
-              ],
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color:
+                  stockBajo ? const Color(0xFFC62828) : DtflyTheme.borderSubtle,
+              width: stockBajo ? 1.2 : 0.8,
             ),
-          ),
-          const Icon(
-            Icons.add_circle_outline,
-            size: 14,
-            color: DtflyTheme.textSecondary,
-          ),
-        ],
-      ),
-        ),
-      ),
-    );
-  }
-}
-
-class _MaterialConFotoFila extends StatelessWidget {
-  const _MaterialConFotoFila({
-    required this.material,
-    required this.usuarioId,
-  });
-
-  final MaterialInventario material;
-  final String usuarioId;
-
-  @override
-  Widget build(BuildContext context) {
-    final cat = UtileroMaterialCat.resolver(
-      '${material.categoria} ${material.nombre}',
-    );
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(10),
-      child: InkWell(
-        onTap: () => UtileroIngresarStockDialog.mostrarPorMaterial(
-          context,
-          material: material,
-          usuarioId: usuarioId,
-        ),
-        borderRadius: BorderRadius.circular(10),
-        child: Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: DtflyTheme.borderSubtle, width: 0.8),
-      ),
-      child: Row(
-        children: [
-          UtileroMaterialThumbnail(
-            categoria: cat,
-            imagenUrl: material.imagenUrl,
-            size: 36,
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  material.nombre,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Text(
-                  material.categoria,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    color: DtflyTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                '${material.cantidadDisponible}',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Text(
-                'disp.',
-                style: TextStyle(fontSize: 9, color: DtflyTheme.textSecondary),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.03),
+                blurRadius: 3,
+                offset: const Offset(0, 1),
               ),
             ],
           ),
-          const Icon(
-            Icons.add_circle_outline,
-            size: 16,
-            color: DtflyTheme.textSecondary,
+          child: Row(
+            children: [
+              UtileroMaterialIcon(
+                categoria: categoria,
+                size: 22,
+                imagenUrl: imagenUrl,
+                imagenBase64: imagenBase64,
+              ),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      titulo,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.bold,
+                        color: tituloColor,
+                      ),
+                    ),
+                    const SizedBox(height: 1),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text(
+                          '$disponible',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: stockBajo
+                                ? const Color(0xFFC62828)
+                                : DtflyTheme.textPrimary,
+                            height: 1,
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Text(
+                          'disp.',
+                          style: TextStyle(
+                            fontSize: 8,
+                            color: DtflyTheme.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ),
+                    if (stockBajo)
+                      const Text(
+                        'BAJO',
+                        style: TextStyle(
+                          color: Color(0xFFC62828),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 7,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const Icon(
+                Icons.add_circle_outline,
+                size: 14,
+                color: DtflyTheme.textSecondary,
+              ),
+            ],
           ),
-        ],
-      ),
         ),
       ),
     );

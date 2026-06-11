@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/core/utilero_material.dart';
+import 'package:flutter_application_1/screens/utilero/kiosco/utilero_devoluciones_pendientes_screen.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_flujo_screen.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
@@ -114,9 +115,11 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
     return StreamBuilder(
       stream: InventarioService.streamMateriales(),
       builder: (context, snap) {
+        final mats = snap.data ?? [];
         final stock = snap.hasData
-            ? UtileroInventarioKiosco.stockDesdeMateriales(snap.data!)
+            ? UtileroInventarioKiosco.stockDesdeMateriales(mats)
             : <String, int>{};
+        final agregados = UtileroInventarioKiosco.materialesAgregados(mats);
 
         return DtflyMockupDashboardLayout(
           saludo: '¡Hola, $_primerNombre!',
@@ -144,10 +147,27 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
               const SizedBox(height: 12),
               DtflyMockupInnerCard(
                 emoji: '🤝',
-                titulo: 'Prestar material',
+                titulo: r != null && r.prestamosPendientes > 0
+                    ? 'Devoluciones pendientes'
+                    : 'Prestar material',
                 subtitulo: r != null && r.prestamosPendientes > 0
-                    ? '${r.prestamosPendientes} devoluciones pendientes'
+                    ? '${r.prestamosPendientes} por devolver — toca para ver lista'
                     : 'Entregar implementos a un profesor',
+                onTap: () {
+                  if (r != null && r.prestamosPendientes > 0) {
+                    Navigator.push<void>(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => UtileroDevolucionesPendientesScreen(
+                          usuarioId: widget.usuarioId,
+                          usuarioEmail: widget.usuarioEmail,
+                        ),
+                      ),
+                    ).then((_) => _recargar());
+                  } else {
+                    _abrirFlujo(UtileroFlujoKiosco.prestar);
+                  }
+                },
               ),
               const SizedBox(height: 20),
               const Text(
@@ -214,7 +234,7 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
               ),
               const SizedBox(height: 12),
               DtflyMockupPrimaryButton(
-                texto: '+ Agregar material (elige «Más» para foto propia)',
+                texto: '+ Agregar material con tu foto',
                 onTap: () => UtileroAgregarMaterialDialog.mostrar(
                   context,
                   usuarioId: widget.usuarioId,
@@ -226,7 +246,9 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                 style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
               const SizedBox(height: 10),
-              ...UtileroMaterialCat.todas.map((cat) {
+              ...UtileroMaterialCat.todas
+                  .where((c) => c.id != 'mas')
+                  .map((cat) {
                 final cant = stock[cat.id] ?? 0;
                 final bajo = cant <= UtileroMaterialCat.umbralStockBajo;
                 return Padding(
@@ -238,11 +260,16 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                       borderRadius: BorderRadius.circular(14),
                       onTap: widget.onIrInventario,
                       child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 12,
+                        ),
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(14),
                           border: Border.all(
-                            color: bajo ? const Color(0xFFC62828) : DtflyTheme.borderSubtle,
+                            color: bajo
+                                ? const Color(0xFFC62828)
+                                : DtflyTheme.borderSubtle,
                           ),
                         ),
                         child: Row(
@@ -255,13 +282,18 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                                 children: [
                                   Text(
                                     cat.nombre,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 15,
+                                    ),
                                   ),
                                   Text(
                                     bajo ? 'Stock bajo' : '$cant disponibles',
                                     style: TextStyle(
                                       fontSize: 13,
-                                      color: bajo ? const Color(0xFFC62828) : DtflyTheme.textSecondary,
+                                      color: bajo
+                                          ? const Color(0xFFC62828)
+                                          : DtflyTheme.textSecondary,
                                     ),
                                   ),
                                 ],
@@ -272,10 +304,15 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 20,
-                                color: bajo ? const Color(0xFFC62828) : DtflyTheme.success,
+                                color: bajo
+                                    ? const Color(0xFFC62828)
+                                    : DtflyTheme.success,
                               ),
                             ),
-                            const Icon(Icons.chevron_right, color: DtflyTheme.textMuted),
+                            const Icon(
+                              Icons.chevron_right,
+                              color: DtflyTheme.textMuted,
+                            ),
                           ],
                         ),
                       ),
@@ -283,6 +320,66 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                   ),
                 );
               }),
+              if (agregados.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                const Text(
+                  'Materiales agregados',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                ),
+                const SizedBox(height: 8),
+                ...agregados.map((m) {
+                  final cat = UtileroMaterialCat.todas
+                      .firstWhere((c) => c.id == 'mas');
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Material(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: widget.onIrInventario,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: DtflyTheme.borderSubtle),
+                          ),
+                          child: Row(
+                            children: [
+                              UtileroMaterialIcon(
+                                categoria: cat,
+                                imagenUrl: m.imagenUrl,
+                                imagenBase64: m.imagenBase64,
+                                size: 32,
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  m.nombre,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w600,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ),
+                              Text(
+                                '${m.cantidadDisponible}',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }),
+              ],
             ],
           ),
         );

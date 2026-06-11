@@ -301,49 +301,60 @@ class DtflyMockupInnerCard extends StatelessWidget {
     required this.emoji,
     required this.titulo,
     required this.subtitulo,
+    this.onTap,
   });
 
   final String emoji;
   final String titulo;
   final String subtitulo;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: onTap,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: DtflyTheme.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Text(emoji, style: const TextStyle(fontSize: 36)),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  titulo,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                    color: DtflyTheme.textPrimary,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitulo,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: DtflyTheme.textSecondary,
-                  ),
-                ),
-              ],
-            ),
+        child: Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: DtflyTheme.borderSubtle),
           ),
-        ],
+          child: Row(
+            children: [
+              Text(emoji, style: const TextStyle(fontSize: 36)),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      titulo,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: DtflyTheme.textPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitulo,
+                      style: const TextStyle(
+                        fontSize: 14,
+                        color: DtflyTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (onTap != null)
+                const Icon(Icons.chevron_right, color: DtflyTheme.textMuted),
+            ],
+          ),
+        ),
       ),
     );
   }
