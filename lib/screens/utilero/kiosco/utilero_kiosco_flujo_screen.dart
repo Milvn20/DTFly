@@ -7,6 +7,7 @@ import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/utilero_kiosco_widgets.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
+import 'package:flutter_application_1/widgets/utilero_firma_retiro_dialog.dart';
 
 /// Flujo guiado en máximo 3 pasos: persona (solo préstamo) → material → cantidad.
 class UtileroKioscoFlujoScreen extends StatefulWidget {
@@ -39,6 +40,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
   Map<String, int> _prestadosPorCat = {};
   Map<String, int> _prestadosPorMaterialId = {};
   List<MaterialInventario> _materialesAgregados = [];
+  List<MaterialInventario> _materialesFiltrados = [];
   String? _materialIdSeleccionado;
   String? _materialNombreSeleccionado;
 
@@ -96,6 +98,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
         await InventarioService.streamMaterialesDeporte(widget.deporteId).first;
     if (mounted) {
       setState(() {
+        _materialesFiltrados = mats;
         _materialesAgregados = UtileroInventarioKiosco.materialesAgregados(mats);
       });
     }
@@ -217,6 +220,18 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
       return;
     }
 
+    String? firmaBase64;
+    if (_esPrestar && _persona != null) {
+      final nombreMat =
+          _materialNombreSeleccionado ?? _material!.nombre;
+      firmaBase64 = await UtileroFirmaRetiroDialog.mostrar(
+        context,
+        nombreRetirador: _persona!.nombre,
+        materialResumen: '$_cantidad × $nombreMat',
+      );
+      if (firmaBase64 == null) return;
+    }
+
     setState(() => _guardando = true);
     try {
       switch (widget.flujo) {
@@ -246,6 +261,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
               cantidad: _cantidad,
               persona: _persona!,
               utileroId: widget.usuarioId,
+              firmaRetiroBase64: firmaBase64,
             );
           } else {
             await UtileroInventarioKiosco.prestarMaterial(
@@ -254,6 +270,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
               persona: _persona!,
               utileroId: widget.usuarioId,
               deporteId: widget.deporteId,
+              firmaRetiroBase64: firmaBase64,
             );
           }
         case UtileroFlujoKiosco.devolver:
@@ -371,22 +388,42 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
   Widget _buildCuerpo() {
     if (_esPrestar && _paso == 0) return _buildPasoPersona();
     final pasoMaterial = _esPrestar ? _paso == 1 : _paso == 0;
-    if (pasoMaterial) return _buildPasoMaterial();
-    return _buildPasoCantidad();
+    if (pasoMaterial) {
+      return _buildPanelBlanco(_buildPasoMaterial());
+    }
+    return _buildPanelBlanco(_buildPasoCantidad());
+  }
+
+  Widget _buildPanelBlanco(Widget child) {
+    return Container(
+      width: double.infinity,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: child,
+    );
   }
 
   Widget _buildPasoPersona() {
     if (_cargandoPersonas) {
-      return const Center(child: CircularProgressIndicator(color: DtflyTheme.primary));
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.white),
+      );
     }
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       children: [
-        UtileroKioscoPasos(pasoActual: 1, totalPasos: 3, etiqueta: _etiquetaPaso),
-        const SizedBox(height: 20),
+        UtileroKioscoPasos(
+          pasoActual: 1,
+          totalPasos: 3,
+          etiqueta: _etiquetaPaso,
+          sobreFondoRojo: true,
+        ),
+        const SizedBox(height: 24),
         ..._entrenadores.map(
           (p) => Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.only(bottom: 12),
             child: UtileroKioscoPersonaCard(
               persona: p,
               onTap: () => setState(() {
@@ -396,6 +433,7 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
             ),
           ),
         ),
+        const SizedBox(height: 8),
         UtileroKioscoBotonGigante(
           emoji: '➕',
           titulo: 'OTRO',
@@ -450,10 +488,16 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
           children: cats.map((cat) {
             final prestados = _prestadosPorCat[cat.id] ?? 0;
             final deshabilitado = _esDevolver && prestados <= 0;
+            final img = UtileroInventarioKiosco.imagenDeCategoria(
+              _materialesFiltrados,
+              cat,
+            );
             return Opacity(
               opacity: deshabilitado ? 0.45 : 1,
               child: UtileroKioscoMaterialCard(
                 categoria: cat,
+                imagenUrl: img.url,
+                imagenBase64: img.base64,
                 subtitulo: _subtituloMaterial(cat),
                 onTap: deshabilitado
                     ? () {}
@@ -548,6 +592,18 @@ class _UtileroKioscoFlujoScreenState extends State<UtileroKioscoFlujoScreen> {
           ),
         ),
         const SizedBox(height: 24),
+        if (_esPrestar)
+          const Padding(
+            padding: EdgeInsets.only(bottom: 12),
+            child: Text(
+              'Al confirmar se pedirá la firma del profesor en pantalla.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: DtflyTheme.textSecondary,
+              ),
+            ),
+          ),
         UtileroKioscoTeclado(
           valor: _cantidadStr,
           onDigito: _digito,

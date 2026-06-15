@@ -21,6 +21,7 @@ class UtileroPerfil {
     this.horarioInicio,
     this.horarioFin,
     this.bodegaPrincipal,
+    this.institucion,
   });
 
   final String id;
@@ -42,6 +43,8 @@ class UtileroPerfil {
   final String? horarioFin;
   /// Ubicación física de la bodega del utilero.
   final String? bodegaPrincipal;
+  /// Universidad o institución donde trabaja el utilero.
+  final String? institucion;
 
   String get nombreCompleto {
     final parts = [nombre, apellido].where((e) => e.trim().isNotEmpty);
@@ -104,6 +107,7 @@ class UtileroPerfil {
       horarioInicio: d['horario_inicio'] as String?,
       horarioFin: d['horario_fin'] as String?,
       bodegaPrincipal: d['bodega_principal'] as String?,
+      institucion: d['institucion'] as String?,
     );
   }
 }

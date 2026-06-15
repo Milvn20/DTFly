@@ -5,7 +5,9 @@ import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/models/entrenamiento.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
+import 'package:flutter_application_1/models/utilero_modulos.dart';
 import 'package:flutter_application_1/models/utilero_perfil.dart';
+import 'package:flutter_application_1/screens/utilero/utilero_inventario_anual_screen.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
@@ -112,7 +114,7 @@ class UtileroHerramientasScreen extends StatelessWidget {
           _Tile(
             icon: Icons.fact_check_outlined,
             titulo: 'Inventario físico',
-            subtitulo: 'Conteo manual vs sistema',
+            subtitulo: 'Conteo rápido e inventario anual formal',
             onTap: () => _ir(
               context,
               UtileroInventarioFisicoScreen(
@@ -188,6 +190,10 @@ class UtileroCalendarioScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final seleccion = deporteId != null && deporteId!.isNotEmpty
+        ? DeportesCategoria.nombreVisible(deporteId)
+        : null;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Calendario'),
@@ -202,21 +208,39 @@ class UtileroCalendarioScreen extends StatelessWidget {
           }
           final lista = snap.data ?? [];
           if (lista.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
+                padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No hay entrenamientos programados en los próximos días.',
+                  seleccion != null
+                      ? 'No hay entrenamientos de $seleccion '
+                          'en los próximos 14 días.'
+                      : 'No hay entrenamientos programados en los próximos días.',
                   textAlign: TextAlign.center,
                 ),
               ),
             );
           }
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: lista.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (seleccion != null)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                  child: Text(
+                    'Selección: $seleccion · ${lista.length} sesión(es)',
+                    style: const TextStyle(
+                      color: DtflyTheme.textSecondary,
+                      fontSize: 13,
+                    ),
+                  ),
+                ),
+              Expanded(
+                child: ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: lista.length,
+                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  itemBuilder: (context, i) {
               final e = lista[i];
               final hoy = DateTime.now();
               final esHoy = e.inicioProgramado.year == hoy.year &&
@@ -240,6 +264,9 @@ class UtileroCalendarioScreen extends StatelessWidget {
                 ),
               );
             },
+                ),
+              ),
+            ],
           );
         },
       ),
@@ -715,7 +742,72 @@ class UtileroInventarioFisicoScreen extends StatefulWidget {
 }
 
 class _UtileroInventarioFisicoScreenState
-    extends State<UtileroInventarioFisicoScreen> {
+    extends State<UtileroInventarioFisicoScreen>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabs;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabs = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabs.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inventario físico'),
+        backgroundColor: _rojo,
+        foregroundColor: Colors.white,
+        bottom: TabBar(
+          controller: _tabs,
+          indicatorColor: Colors.white,
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          tabs: const [
+            Tab(text: 'Conteo rápido'),
+            Tab(text: 'Anual formal'),
+          ],
+        ),
+      ),
+      body: TabBarView(
+        controller: _tabs,
+        children: [
+          _InventarioFisicoRapidoTab(
+            usuarioId: widget.usuarioId,
+            deporteId: widget.deporteId,
+          ),
+          UtileroInventarioAnualListaScreen(
+            usuarioId: widget.usuarioId,
+            deporteId: widget.deporteId,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _InventarioFisicoRapidoTab extends StatefulWidget {
+  const _InventarioFisicoRapidoTab({
+    required this.usuarioId,
+    this.deporteId,
+  });
+
+  final String usuarioId;
+  final String? deporteId;
+
+  @override
+  State<_InventarioFisicoRapidoTab> createState() =>
+      _InventarioFisicoRapidoTabState();
+}
+
+class _InventarioFisicoRapidoTabState extends State<_InventarioFisicoRapidoTab> {
   final _conteos = <String, TextEditingController>{};
   bool _guardando = false;
 
@@ -745,9 +837,8 @@ class _UtileroInventarioFisicoScreenState
       );
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Conteo registrado en historial')),
+          const SnackBar(content: Text('Conteo rápido registrado')),
         );
-        Navigator.pop(context);
       }
     } finally {
       if (mounted) setState(() => _guardando = false);
@@ -756,15 +847,9 @@ class _UtileroInventarioFisicoScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inventario físico'),
-        backgroundColor: _rojo,
-        foregroundColor: Colors.white,
-      ),
-      body: StreamBuilder<List<MaterialInventario>>(
-        stream: InventarioService.streamMaterialesDeporte(widget.deporteId),
-        builder: (context, snap) {
+    return StreamBuilder<List<MaterialInventario>>(
+      stream: InventarioService.streamMaterialesDeporte(widget.deporteId),
+      builder: (context, snap) {
           final mats = snap.data ?? [];
           if (mats.isEmpty) {
             return const Center(child: Text('No hay materiales en esta selección.'));
@@ -843,7 +928,6 @@ class _UtileroInventarioFisicoScreenState
             ],
           );
         },
-      ),
     );
   }
 }

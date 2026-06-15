@@ -13,6 +13,9 @@ class PrestamoMaterial {
     required this.devuelto,
     this.devueltoEn,
     this.notas,
+    this.firmaRetiroBase64,
+    this.firmadoPor,
+    this.firmadoEn,
   });
 
   final String id;
@@ -25,6 +28,9 @@ class PrestamoMaterial {
   final bool devuelto;
   final DateTime? devueltoEn;
   final String? notas;
+  final String? firmaRetiroBase64;
+  final String? firmadoPor;
+  final DateTime? firmadoEn;
 
   static PrestamoMaterial fromDoc(
     DocumentSnapshot<Map<String, dynamic>> doc,
@@ -43,6 +49,9 @@ class PrestamoMaterial {
       devuelto: d['devuelto'] as bool? ?? false,
       devueltoEn: devueltoTs?.toDate(),
       notas: d['notas'] as String?,
+      firmaRetiroBase64: d['firma_retiro_base64'] as String?,
+      firmadoPor: d['firmado_por'] as String?,
+      firmadoEn: (d['firmado_en'] as Timestamp?)?.toDate(),
     );
   }
 }

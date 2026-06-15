@@ -96,8 +96,9 @@ class UtileroMenuSheet {
               ),
               _opcion(
                 ctx,
-                icon: Icons.delete_outline,
+                icon: Icons.delete_forever_outlined,
                 titulo: 'Eliminar material',
+                peligro: true,
                 onTap: () {
                   Navigator.pop(ctx);
                   onEliminarMaterial();

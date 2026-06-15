@@ -29,6 +29,20 @@ class UtileroMaterialAccionesSheet {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              Builder(
+                builder: (context) {
+                  final cat = UtileroMaterialCat.resolver(
+                    '${material.categoria} ${material.nombre}',
+                  );
+                  return UtileroMaterialIcon(
+                    categoria: cat,
+                    size: 48,
+                    imagenUrl: material.imagenUrl,
+                    imagenBase64: material.imagenBase64,
+                  );
+                },
+              ),
+              const SizedBox(height: 8),
               Text(
                 material.nombre,
                 textAlign: TextAlign.center,
@@ -38,14 +52,39 @@ class UtileroMaterialAccionesSheet {
                 ),
               ),
               Text(
-                '${material.cantidadDisponible} disponible(s)',
+                '${material.cantidadDisponible} disponible(s) · ${material.cantidadTotal} total',
                 textAlign: TextAlign.center,
                 style: const TextStyle(
                   fontSize: 13,
                   color: DtflyTheme.textSecondary,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: () async {
+                    Navigator.pop(ctx);
+                    await UtileroEliminarMaterialDialog.confirmar(
+                      context,
+                      material: material,
+                      usuarioId: usuarioId,
+                    );
+                  },
+                  icon: const Icon(Icons.delete_forever_outlined),
+                  label: const Text('Eliminar material'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFFC62828),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
               ListTile(
                 leading: const Icon(
                   Icons.add_box_outlined,
@@ -56,30 +95,6 @@ class UtileroMaterialAccionesSheet {
                 onTap: () {
                   Navigator.pop(ctx);
                   UtileroIngresarStockDialog.mostrarPorMaterial(
-                    context,
-                    material: material,
-                    usuarioId: usuarioId,
-                  );
-                },
-              ),
-              ListTile(
-                leading: const Icon(
-                  Icons.delete_outline,
-                  color: Color(0xFFC62828),
-                ),
-                title: const Text(
-                  'Eliminar material',
-                  style: TextStyle(
-                    color: Color(0xFFC62828),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                subtitle: const Text(
-                  'Quitar del inventario de esta selección',
-                ),
-                onTap: () async {
-                  Navigator.pop(ctx);
-                  await UtileroEliminarMaterialDialog.confirmar(
                     context,
                     material: material,
                     usuarioId: usuarioId,
@@ -312,6 +327,7 @@ class UtileroEliminarMaterialListaScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         title: const Text('Eliminar material'),
         backgroundColor: const Color(0xFFC62828),
@@ -327,60 +343,154 @@ class UtileroEliminarMaterialListaScreen extends StatelessWidget {
           }
           final materiales = snap.data ?? [];
           if (materiales.isEmpty) {
-            return const Center(
+            return Center(
               child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'No hay materiales para eliminar en esta selección.',
-                  textAlign: TextAlign.center,
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(
+                      Icons.inventory_2_outlined,
+                      size: 64,
+                      color: Colors.grey.shade400,
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'No hay materiales en esta selección',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Agrega material primero o cambia de selección deportiva.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.grey.shade600),
+                    ),
+                  ],
                 ),
               ),
             );
           }
 
-          final nombres = <String, int>{};
-          for (final m in materiales) {
-            final clave = '${m.categoria}|${m.nombre}'.toLowerCase();
-            nombres[clave] = (nombres[clave] ?? 0) + 1;
-          }
-
-          return ListView.separated(
-            padding: const EdgeInsets.all(16),
-            itemCount: materiales.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
-            itemBuilder: (context, i) {
-              final m = materiales[i];
-              final clave = '${m.categoria}|${m.nombre}'.toLowerCase();
-              final esDuplicado = (nombres[clave] ?? 0) > 1;
-              return Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                child: ListTile(
-                  title: Text(m.nombre),
-                  subtitle: Text(
-                    '${m.categoria} · ${m.cantidadDisponible} disp. · '
-                    '${m.cantidadTotal} total'
-                    '${esDuplicado ? ' · duplicado' : ''}',
-                  ),
-                  trailing: IconButton(
-                    icon: const Icon(
-                      Icons.delete_outline,
-                      color: Color(0xFFC62828),
-                    ),
-                    onPressed: () => UtileroEliminarMaterialDialog.confirmar(
-                      context,
-                      material: m,
-                      usuarioId: usuarioId,
-                    ),
-                  ),
-                  onTap: () => UtileroEliminarMaterialDialog.confirmar(
-                    context,
-                    material: m,
-                    usuarioId: usuarioId,
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+            children: [
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFC62828).withValues(alpha: 0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: const Color(0xFFC62828).withValues(alpha: 0.3),
                   ),
                 ),
-              );
-            },
+                child: Row(
+                  children: [
+                    const Icon(Icons.info_outline, color: Color(0xFFC62828)),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        '${materiales.length} material(es) en esta selección. '
+                        'Pulsa ELIMINAR en el que quieras quitar.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.grey.shade800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              ...materiales.map((m) {
+                final cat = UtileroMaterialCat.resolver(
+                  '${m.categoria} ${m.nombre}',
+                );
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Material(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(14),
+                    elevation: 1,
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              UtileroMaterialIcon(
+                                categoria: cat,
+                                size: 52,
+                                imagenUrl: m.imagenUrl,
+                                imagenBase64: m.imagenBase64,
+                              ),
+                              const SizedBox(width: 14),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      m.nombre,
+                                      style: const TextStyle(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      m.categoria,
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        color: DtflyTheme.textSecondary,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${m.cantidadDisponible} disponibles · '
+                                      '${m.cantidadTotal} total',
+                                      style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: () =>
+                                  UtileroEliminarMaterialDialog.confirmar(
+                                context,
+                                material: m,
+                                usuarioId: usuarioId,
+                              ),
+                              icon: const Icon(Icons.delete_forever_outlined),
+                              label: const Text('ELIMINAR'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: const Color(0xFFC62828),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(vertical: 14),
+                                textStyle: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }),
+            ],
           );
         },
       ),

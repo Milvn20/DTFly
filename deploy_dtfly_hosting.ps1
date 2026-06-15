@@ -1,4 +1,8 @@
 # Compila DTFly para web y publica en Firebase Hosting.
+param(
+    [string]$BuildId = ''
+)
+
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
@@ -21,21 +25,28 @@ function Resolve-Flutter {
     throw 'No se encontró Flutter. Instálalo o agrégalo al PATH.'
 }
 
+if ([string]::IsNullOrWhiteSpace($BuildId)) {
+    $BuildId = Get-Date -Format 'yyyyMMddHHmm'
+}
+
 $flutter = Resolve-Flutter
 Write-Host "Usando Flutter: $flutter" -ForegroundColor Cyan
 
-Write-Host 'Compilando web (release)...' -ForegroundColor Yellow
+Write-Host "Compilando web (release) build=$BuildId ..." -ForegroundColor Yellow
 & $flutter pub get
-& $flutter build web --release
+& $flutter build web --release --no-wasm-dry-run --dart-define=DTFLY_BUILD=$BuildId
 
 if (-not (Test-Path 'build\web\index.html')) {
     throw 'La compilación no generó build\web\index.html'
 }
 
-Write-Host 'Desplegando reglas Firestore y Hosting...' -ForegroundColor Yellow
-firebase deploy --only firestore:rules,hosting
+& (Join-Path $PSScriptRoot 'stamp_web_build.ps1') -WebDir (Join-Path $PSScriptRoot 'build\web') -BuildId $BuildId | Out-Null
+
+Write-Host 'Desplegando Firebase Hosting...' -ForegroundColor Yellow
+firebase deploy --only hosting
 
 Write-Host ''
 Write-Host 'Listo. URL:' -ForegroundColor Green
 Write-Host '  https://dtfly-d8997.web.app' -ForegroundColor Green
 Write-Host '  https://dtfly-d8997.firebaseapp.com' -ForegroundColor Green
+Write-Host "  Build: $BuildId" -ForegroundColor Green

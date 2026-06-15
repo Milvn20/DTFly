@@ -73,6 +73,8 @@ class UtileroService {
   static const String _colNotif = 'notificaciones_utilero';
   static const String _colSolicitudes = 'solicitudes_compra_utilero';
   static const String _colChecklist = 'checklist_utilero';
+  static const String _colInventarioFisico = 'inventario_fisico_utilero';
+  static const String _colEmails = 'emails_utilero';
   static const int _umbralStockBajo = 2;
 
   static DocumentReference<Map<String, dynamic>> refPerfil(String usuarioId) =>
@@ -173,6 +175,7 @@ class UtileroService {
     String? horarioInicio,
     String? horarioFin,
     String? bodegaPrincipal,
+    String? institucion,
   }) async {
     final payload = <String, dynamic>{
       'nombre': nombre.trim(),
@@ -184,6 +187,7 @@ class UtileroService {
       if (horarioInicio != null) 'horario_inicio': horarioInicio.trim(),
       if (horarioFin != null) 'horario_fin': horarioFin.trim(),
       if (bodegaPrincipal != null) 'bodega_principal': bodegaPrincipal.trim(),
+      if (institucion != null) 'institucion': institucion.trim(),
       'updated_at': FieldValue.serverTimestamp(),
     };
     if (deporteId != null && deporteId.isNotEmpty) {
@@ -349,7 +353,75 @@ class UtileroService {
       'leida': false,
       'fecha': FieldValue.serverTimestamp(),
     });
+    await _enviarEmailAlertaSiActivo(
+      utileroId: utileroId,
+      titulo: titulo,
+      mensaje: mensaje,
+      tipo: tipo,
+    );
   }
+
+  /// Encola un correo en Firestore; Cloud Functions lo envía por SMTP.
+  static Future<void> encolarEmail({
+    required String para,
+    required String asunto,
+    required String cuerpo,
+    required String utileroId,
+    required String tipo,
+    String? html,
+  }) async {
+    final destino = para.trim().toLowerCase();
+    if (destino.isEmpty || !destino.contains('@')) return;
+    await _db.collection(_colEmails).add({
+      'para': destino,
+      'asunto': asunto.trim(),
+      'cuerpo': cuerpo.trim(),
+      if (html != null && html.isNotEmpty) 'html': html,
+      'utilero_id': utileroId,
+      'tipo': tipo,
+      'estado': 'pendiente',
+      'creado_en': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> _enviarEmailAlertaSiActivo({
+    required String utileroId,
+    required String titulo,
+    required String mensaje,
+    required String tipo,
+  }) async {
+    try {
+      final perfil = await streamPerfil(utileroId).first;
+      if (!perfil.notifEmail) return;
+      final correo = perfil.correo.trim();
+      if (correo.isEmpty || !correo.contains('@')) return;
+
+      final html = '''
+<html><body style="font-family:sans-serif;padding:20px">
+<h2 style="color:#C62828">DTFly — Alerta utilero</h2>
+<p><strong>${_escHtml(titulo)}</strong></p>
+<p>${_escHtml(mensaje)}</p>
+<hr>
+<p style="font-size:12px;color:#666">Tipo: ${_escHtml(tipo)} · Selección: ${_escHtml(perfil.deporteNombre ?? "—")}</p>
+</body></html>''';
+
+      await encolarEmail(
+        para: correo,
+        asunto: 'DTFly: $titulo',
+        cuerpo: '$titulo\n\n$mensaje\n\n— DTFly Utilero',
+        html: html,
+        utileroId: utileroId,
+        tipo: tipo,
+      );
+    } catch (_) {
+      // No bloquear notificaciones in-app si falla el correo.
+    }
+  }
+
+  static String _escHtml(String s) => s
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;');
 
   static Future<void> marcarNotificacionLeida(String id) async {
     await _db.collection(_colNotif).doc(id).update({'leida': true});
@@ -765,12 +837,38 @@ $rows
           isGreaterThanOrEqualTo: Timestamp.fromDate(inicio),
         )
         .snapshots()
-        .map((s) {
-      final list = s.docs.map(Entrenamiento.fromDoc).toList()
-        ..removeWhere((e) => e.inicioProgramado.isAfter(fin));
-      if (deporteId != null && deporteId.isNotEmpty) {
-        // Filtrado en cliente: entrenamientos pueden no tener deporte en doc antiguo.
+        .asyncMap((s) async {
+      final coachCache = <String, String?>{};
+      final list = <Entrenamiento>[];
+
+      for (final doc in s.docs) {
+        final data = doc.data();
+        final ent = Entrenamiento.fromDoc(doc);
+        if (ent.inicioProgramado.isAfter(fin)) continue;
+
+        if (deporteId == null || deporteId.isEmpty) {
+          list.add(ent);
+          continue;
+        }
+
+        var depEnt = DeporteUsuario.idDesde(data);
+        if (depEnt == null || depEnt.isEmpty) {
+          final coachId = data['entrenadorUsuarioId'] as String? ?? '';
+          if (coachId.isNotEmpty) {
+            if (coachCache.containsKey(coachId)) {
+              depEnt = coachCache[coachId];
+            } else {
+              final u = await _db.collection('usuarios').doc(coachId).get();
+              depEnt = u.exists
+                  ? DeporteUsuario.idDesde(u.data() ?? {})
+                  : null;
+              coachCache[coachId] = depEnt;
+            }
+          }
+        }
+        if (depEnt == deporteId) list.add(ent);
       }
+
       list.sort((a, b) => a.inicioProgramado.compareTo(b.inicioProgramado));
       return list;
     });
@@ -932,13 +1030,39 @@ $rows
   }) async {
     var diferencias = 0;
     final detalle = StringBuffer();
+    final items = <Map<String, dynamic>>[];
     for (final e in conteos.entries) {
       final sys = sistema[e.key] ?? 0;
       if (e.value != sys) {
         diferencias++;
         detalle.writeln('${e.key}: contado ${e.value}, sistema $sys');
       }
+      items.add({
+        'material_id': e.key.hashCode.toString(),
+        'nombre': e.key,
+        'sistema': sys,
+        'contado': e.value,
+        'observacion': e.value != sys ? 'Diferencia en conteo rápido' : '',
+      });
     }
+
+    final payload = <String, dynamic>{
+      'utilero_id': utileroId,
+      'anio': DateTime.now().year,
+      'tipo': 'rapido',
+      'estado': 'cerrado',
+      'items': items,
+      'observaciones_generales': diferencias == 0
+          ? 'Conteo rápido — coincide con sistema'
+          : 'Conteo rápido — $diferencias diferencia(s)',
+      'creado_en': FieldValue.serverTimestamp(),
+      'cerrado_en': FieldValue.serverTimestamp(),
+    };
+    if (deporteId != null && deporteId.isNotEmpty) {
+      payload.addAll(DeporteUsuario.camposAlGuardar(deporteId));
+    }
+    await _db.collection(_colInventarioFisico).add(payload);
+
     await registrarActividad(
       utileroId: utileroId,
       accion: 'Inventario físico',
@@ -948,6 +1072,327 @@ $rows
       material: deporteId ?? '—',
       cantidad: conteos.length,
     );
+  }
+
+  static Stream<List<InventarioFisicoSesion>> streamInventariosFisicos(
+    String utileroId, {
+    String? deporteId,
+    String? tipo,
+  }) {
+    return _db
+        .collection(_colInventarioFisico)
+        .where('utilero_id', isEqualTo: utileroId)
+        .limit(40)
+        .snapshots()
+        .map((s) {
+      var list = s.docs.map(InventarioFisicoSesion.fromDoc).toList();
+      if (deporteId != null && deporteId.isNotEmpty) {
+        list = list.where((x) => x.deporteId == deporteId).toList();
+      }
+      if (tipo != null && tipo.isNotEmpty) {
+        list = list.where((x) => x.tipo == tipo).toList();
+      }
+      list.sort(
+        (a, b) => (b.creadoEn ?? DateTime(2000))
+            .compareTo(a.creadoEn ?? DateTime(2000)),
+      );
+      return list;
+    });
+  }
+
+  static Future<String> crearInventarioAnual({
+    required String utileroId,
+    String? deporteId,
+    int? anio,
+  }) async {
+    final year = anio ?? DateTime.now().year;
+    final snap = await _db
+        .collection(_colInventarioFisico)
+        .where('utilero_id', isEqualTo: utileroId)
+        .where('anio', isEqualTo: year)
+        .where('tipo', isEqualTo: 'anual')
+        .get();
+
+    for (final d in snap.docs) {
+      final data = d.data();
+      final dep = data['deporte'] as String?;
+      if (dep != deporteId) continue;
+      if (data['estado'] == 'borrador') return d.id;
+      if (data['estado'] == 'cerrado') {
+        throw StateError(
+          'Ya existe un inventario anual cerrado para $year. '
+          'Puedes exportarlo desde el historial.',
+        );
+      }
+    }
+
+    final mats =
+        await InventarioService.streamMaterialesDeporte(deporteId).first;
+    if (mats.isEmpty) {
+      throw StateError('No hay materiales en esta selección para inventariar.');
+    }
+
+    final items = mats
+        .map(
+          (m) => InventarioFisicoItem(
+            materialId: m.id,
+            nombre: m.nombre,
+            sistema: m.cantidadTotal,
+            contado: m.cantidadTotal,
+          ).toMap(),
+        )
+        .toList();
+
+    final payload = <String, dynamic>{
+      'utilero_id': utileroId,
+      'anio': year,
+      'tipo': 'anual',
+      'estado': 'borrador',
+      'items': items,
+      'observaciones_generales': '',
+      'responsable_verificacion': '',
+      'firma_coordinador': '',
+      'creado_en': FieldValue.serverTimestamp(),
+    };
+    if (deporteId != null && deporteId.isNotEmpty) {
+      payload.addAll(DeporteUsuario.camposAlGuardar(deporteId));
+    }
+    final ref = await _db.collection(_colInventarioFisico).add(payload);
+    await registrarActividad(
+      utileroId: utileroId,
+      accion: 'Inventario anual iniciado',
+      descripcion: 'Borrador $year · ${items.length} ítems',
+      material: deporteId ?? '—',
+      cantidad: items.length,
+    );
+    return ref.id;
+  }
+
+  static Future<void> actualizarItemsInventarioFisico({
+    required String sesionId,
+    required List<InventarioFisicoItem> items,
+    String? observacionesGenerales,
+    String? responsableVerificacion,
+    String? firmaCoordinador,
+  }) async {
+    final ref = _db.collection(_colInventarioFisico).doc(sesionId);
+    final snap = await ref.get();
+    if (!snap.exists) throw StateError('Sesión no encontrada');
+    if (snap.data()?['estado'] == 'cerrado') {
+      throw StateError('El inventario ya está cerrado y no se puede editar.');
+    }
+    await ref.update({
+      'items': items.map((i) => i.toMap()).toList(),
+      if (observacionesGenerales != null)
+        'observaciones_generales': observacionesGenerales,
+      if (responsableVerificacion != null)
+        'responsable_verificacion': responsableVerificacion,
+      if (firmaCoordinador != null) 'firma_coordinador': firmaCoordinador,
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+  }
+
+  static Future<void> cerrarInventarioAnual({
+    required String sesionId,
+    required String utileroId,
+    required String responsableVerificacion,
+    required String firmaCoordinador,
+    String? observacionesGenerales,
+  }) async {
+    if (responsableVerificacion.trim().isEmpty) {
+      throw StateError('Indica quién verificó el conteo físico.');
+    }
+    if (firmaCoordinador.trim().isEmpty) {
+      throw StateError('Indica el nombre del coordinador / DT que firma.');
+    }
+
+    final ref = _db.collection(_colInventarioFisico).doc(sesionId);
+    final snap = await ref.get();
+    if (!snap.exists) throw StateError('Sesión no encontrada');
+    final sesion = InventarioFisicoSesion.fromDoc(snap);
+    if (sesion.cerrado) throw StateError('Este inventario ya está cerrado.');
+
+    await ref.update({
+      'estado': 'cerrado',
+      'responsable_verificacion': responsableVerificacion.trim(),
+      'firma_coordinador': firmaCoordinador.trim(),
+      'observaciones_generales': observacionesGenerales?.trim() ?? '',
+      'cerrado_en': FieldValue.serverTimestamp(),
+    });
+
+    final cerrada = InventarioFisicoSesion.fromDoc(
+      await ref.get(),
+    );
+    final perfil = await streamPerfil(utileroId).first;
+
+    await registrarActividad(
+      utileroId: utileroId,
+      accion: 'Inventario anual cerrado',
+      descripcion:
+          '${cerrada.anio} · ${cerrada.totalDiferencias} diferencia(s) · '
+          'Firma: $firmaCoordinador',
+      material: cerrada.deporteNombre ?? cerrada.deporteId ?? '—',
+      cantidad: cerrada.items.length,
+    );
+
+    await _notificarInventarioAnualCerrado(
+      utileroId: utileroId,
+      perfil: perfil,
+      sesion: cerrada,
+    );
+  }
+
+  static Future<void> _notificarInventarioAnualCerrado({
+    required String utileroId,
+    required UtileroPerfil perfil,
+    required InventarioFisicoSesion sesion,
+  }) async {
+    final seleccion = sesion.deporteNombre ?? sesion.deporteId ?? '—';
+    final titulo = 'Inventario anual ${sesion.anio} cerrado';
+    final resumen = StringBuffer()
+      ..writeln('Utilero: ${perfil.nombreCompleto}')
+      ..writeln('Selección: $seleccion')
+      ..writeln('Ítems revisados: ${sesion.items.length}')
+      ..writeln('Diferencias: ${sesion.totalDiferencias}')
+      ..writeln('Verificado por: ${sesion.responsableVerificacion}')
+      ..writeln('Firma coordinación: ${sesion.firmaCoordinador}');
+    if (sesion.observacionesGenerales?.isNotEmpty == true) {
+      resumen.writeln('\nObservaciones:\n${sesion.observacionesGenerales}');
+    }
+    for (final i in sesion.items.where((x) => !x.coincide)) {
+      resumen.writeln(
+        '• ${i.nombre}: sistema ${i.sistema}, contado ${i.contado}',
+      );
+    }
+
+    await _db.collection(_colNotif).add({
+      'utilero_id': utileroId,
+      'titulo': titulo,
+      'mensaje': '${sesion.totalDiferencias} diferencia(s) registradas',
+      'tipo': 'inventario_anual',
+      'leida': false,
+      'fecha': FieldValue.serverTimestamp(),
+    });
+
+    if (perfil.correo.trim().isNotEmpty && perfil.notifEmail) {
+      await encolarEmail(
+        para: perfil.correo,
+        asunto: 'DTFly: $titulo — $seleccion',
+        cuerpo: resumen.toString(),
+        html: _htmlInventarioAnual(perfil: perfil, sesion: sesion),
+        utileroId: utileroId,
+        tipo: 'inventario_anual',
+      );
+    }
+
+    final dts = await listarContactosDt(deporteId: sesion.deporteId);
+    for (final dt in dts.take(3)) {
+      if (dt.email.trim().isEmpty) continue;
+      await encolarEmail(
+        para: dt.email,
+        asunto: 'DTFly: $titulo — $seleccion',
+        cuerpo: resumen.toString(),
+        html: _htmlInventarioAnual(perfil: perfil, sesion: sesion),
+        utileroId: utileroId,
+        tipo: 'inventario_anual_dt',
+      );
+    }
+  }
+
+  static String _htmlInventarioAnual({
+    required UtileroPerfil perfil,
+    required InventarioFisicoSesion sesion,
+  }) {
+    final filas = sesion.items
+        .map(
+          (i) =>
+              '<tr><td>${_escHtml(i.nombre)}</td><td>${i.sistema}</td>'
+              '<td>${i.contado}</td><td>${i.diferencia}</td>'
+              '<td>${_escHtml(i.observacion ?? "")}</td></tr>',
+        )
+        .join();
+    return '''
+<html><body style="font-family:sans-serif;padding:24px">
+<h1 style="color:#C62828">Inventario físico anual ${sesion.anio}</h1>
+<p><strong>Utilero:</strong> ${_escHtml(perfil.nombreCompleto)}<br>
+<strong>Selección:</strong> ${_escHtml(sesion.deporteNombre ?? "—")}<br>
+<strong>Verificado por:</strong> ${_escHtml(sesion.responsableVerificacion ?? "—")}<br>
+<strong>Firma coordinación:</strong> ${_escHtml(sesion.firmaCoordinador ?? "—")}</p>
+<table border="1" cellpadding="6" cellspacing="0" width="100%">
+<tr><th>Material</th><th>Sistema</th><th>Contado</th><th>Dif.</th><th>Obs.</th></tr>
+$filas
+</table>
+<p>Diferencias totales: ${sesion.totalDiferencias}</p>
+</body></html>''';
+  }
+
+  static Future<ReporteArchivo> exportarInventarioFisicoPdf({
+    required InventarioFisicoSesion sesion,
+    required UtileroPerfil perfil,
+  }) async {
+    final html = _htmlInventarioAnual(perfil: perfil, sesion: sesion);
+    final tipo = sesion.esAnual ? 'anual' : 'rapido';
+    final nombre =
+        'inventario_fisico_${tipo}_${sesion.anio}_${_slugFecha(DateTime.now())}.html';
+    final ruta = await guardarArchivoReporte(nombre, html);
+    return ReporteArchivo(
+      nombreArchivo: nombre,
+      rutaArchivo: ruta,
+      entrenamientoTitulo: 'Inventario físico ${sesion.anio}',
+      total: sesion.items.length,
+      totalEntrenamientos: 0,
+      presentes: sesion.items.where((i) => i.coincide).length,
+      atrasados: sesion.totalDiferencias,
+      ausentes: 0,
+    );
+  }
+
+  /// Prueba manual del envío de correos (Configuración utilero).
+  static Future<void> enviarEmailPrueba(String utileroId) async {
+    final perfil = await streamPerfil(utileroId).first;
+    if (!perfil.notifEmail) {
+      throw StateError('Activa las notificaciones por correo primero.');
+    }
+    if (perfil.correo.trim().isEmpty || !perfil.correo.contains('@')) {
+      throw StateError('Agrega un correo válido en tu perfil.');
+    }
+    await encolarEmail(
+      para: perfil.correo,
+      asunto: 'DTFly: prueba de alertas por correo',
+      cuerpo:
+          'Hola ${perfil.nombreCompleto},\n\n'
+          'Este es un correo de prueba del módulo utilero DTFly.\n'
+          'Si lo recibes, el envío automático de alertas está configurado.',
+      html: '''
+<html><body style="font-family:sans-serif;padding:20px">
+<h2 style="color:#C62828">DTFly — Correo de prueba</h2>
+<p>Hola <strong>${_escHtml(perfil.nombreCompleto)}</strong>,</p>
+<p>Si recibes este mensaje, las alertas por correo del utilero están activas.</p>
+</body></html>''',
+      utileroId: utileroId,
+      tipo: 'prueba_email',
+    );
+  }
+
+  static Stream<Map<String, dynamic>?> streamUltimoEmailEstado(
+    String utileroId,
+  ) {
+    return _db
+        .collection(_colEmails)
+        .where('utilero_id', isEqualTo: utileroId)
+        .limit(10)
+        .snapshots()
+        .map((s) {
+      if (s.docs.isEmpty) return null;
+      final docs = s.docs.toList()
+        ..sort((a, b) {
+          final ta = a.data()['creado_en'] as Timestamp?;
+          final tb = b.data()['creado_en'] as Timestamp?;
+          return (tb?.millisecondsSinceEpoch ?? 0)
+              .compareTo(ta?.millisecondsSinceEpoch ?? 0);
+        });
+      return docs.first.data();
+    });
   }
 
   static Future<int> contarNotificacionesNoLeidas(String utileroId) async {

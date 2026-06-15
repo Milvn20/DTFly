@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter_application_1/core/deporte_usuario.dart';
+import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/core/utilero_imagen_comprimir.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/models/prestamo_material.dart';
@@ -44,9 +45,56 @@ class InventarioService {
 
   static bool perteneceADeporte(MaterialInventario m, String? deporteId) {
     if (deporteId == null || deporteId.isEmpty) return true;
+    if (UtileroMaterialCat.materialEsCompartido(m)) return true;
     final d = m.deporteId;
     if (d == null || d.isEmpty) return false;
     return d == deporteId;
+  }
+
+  /// Materiales antiguos sin campo `deporte` (no aparecen en ninguna selección).
+  static Stream<List<MaterialInventario>> streamMaterialesSinDeporte() {
+    return streamMateriales().map(
+      (list) => list
+          .where((m) => m.deporteId == null || m.deporteId!.isEmpty)
+          .toList(),
+    );
+  }
+
+  static Future<int> contarMaterialesSinDeporte() async {
+    final snap = await _db.collection(_colMateriales).get();
+    var n = 0;
+    for (final d in snap.docs) {
+      final dep = DeporteUsuario.idDesde(d.data());
+      if (dep == null || dep.isEmpty) n++;
+    }
+    return n;
+  }
+
+  /// Asigna la selección actual a materiales legacy (todos o por ids).
+  static Future<int> asignarDeporteMaterialesLegacy({
+    required String deporteId,
+    List<String>? soloIds,
+  }) async {
+    if (deporteId.isEmpty) {
+      throw StateError('Selecciona una disciplina primero.');
+    }
+    final campos = _camposDeporte(deporteId);
+    final snap = await _db.collection(_colMateriales).get();
+    final batch = _db.batch();
+    var n = 0;
+    for (final d in snap.docs) {
+      if (soloIds != null && !soloIds.contains(d.id)) continue;
+      final dep = DeporteUsuario.idDesde(d.data());
+      if (dep != null && dep.isNotEmpty) continue;
+      batch.update(d.reference, {
+        ...campos,
+        'actualizadoEn': FieldValue.serverTimestamp(),
+      });
+      n++;
+    }
+    if (n == 0) return 0;
+    await batch.commit();
+    return n;
   }
 
   static Map<String, dynamic> _camposDeporte(String? deporteId) {
@@ -311,6 +359,8 @@ class InventarioService {
     required String prestadoA,
     required String entrenadorEmail,
     String notas = '',
+    String? firmaRetiroBase64,
+    String? firmadoPor,
   }) async {
     final matRef = _db.collection(_colMateriales).doc(materialId);
     await _db.runTransaction((tx) async {
@@ -336,6 +386,11 @@ class InventarioService {
       'notas': notas,
       'devuelto': false,
       'prestadoEn': FieldValue.serverTimestamp(),
+      if (firmaRetiroBase64 != null && firmaRetiroBase64.isNotEmpty)
+        'firma_retiro_base64': firmaRetiroBase64,
+      if (firmadoPor != null && firmadoPor.isNotEmpty) 'firmado_por': firmadoPor,
+      if (firmaRetiroBase64 != null && firmaRetiroBase64.isNotEmpty)
+        'firmado_en': FieldValue.serverTimestamp(),
     });
   }
 

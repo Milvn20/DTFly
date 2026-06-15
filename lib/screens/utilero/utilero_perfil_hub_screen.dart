@@ -3,12 +3,25 @@ import 'package:image_picker/image_picker.dart';
 
 import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/models/actividad_utilero.dart';
+import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/models/notificacion_utilero.dart';
 import 'package:flutter_application_1/models/utilero_perfil.dart';
-import 'package:flutter_application_1/screens/inventario/inventario_screen.dart';
+import 'package:flutter_application_1/screens/utilero/kiosco/utilero_devoluciones_pendientes_screen.dart';
+import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_stock_screen.dart';
+import 'package:flutter_application_1/screens/utilero/utilero_modulos_screens.dart';
+import 'package:flutter_application_1/screens/utilero/utilero_seccion_screen.dart';
+import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
+import 'package:flutter_application_1/widgets/utilero_cambiar_seleccion_button.dart';
 import 'package:flutter_application_1/widgets/utilero_widgets.dart';
+
+const _turnosBodega = <String>[
+  'Mañana',
+  'Tarde',
+  'Completo',
+  'Fin de semana',
+];
 
 /// Módulo de pantallas del perfil del utilero (PDF DTFly).
 /// Cada panel se usa en [UtileroSeccionScreen] o en la pestaña Perfil.
@@ -18,11 +31,15 @@ class UtileroPerfilPanel extends StatefulWidget {
     required this.usuarioId,
     required this.usuarioEmail,
     required this.nombreInicial,
+    this.deporteId,
+    this.onCambiarSeleccion,
   });
 
   final String usuarioId;
   final String usuarioEmail;
   final String nombreInicial;
+  final String? deporteId;
+  final VoidCallback? onCambiarSeleccion;
 
   @override
   State<UtileroPerfilPanel> createState() => _UtileroPerfilPanelState();
@@ -37,6 +54,8 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
   final _horarioInicio = TextEditingController();
   final _horarioFin = TextEditingController();
   final _bodega = TextEditingController();
+  final _institucion = TextEditingController();
+  String? _turnoSeleccionado;
   bool _editando = false;
   bool _guardando = false;
   bool _guardandoDeporte = false;
@@ -53,7 +72,31 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
     _horarioInicio.dispose();
     _horarioFin.dispose();
     _bodega.dispose();
+    _institucion.dispose();
     super.dispose();
+  }
+
+  String _fmtHora(TimeOfDay t) =>
+      '${t.hour.toString().padLeft(2, "0")}:${t.minute.toString().padLeft(2, "0")}';
+
+  Future<void> _elegirHora(TextEditingController ctrl) async {
+    TimeOfDay inicial = const TimeOfDay(hour: 8, minute: 0);
+    final txt = ctrl.text.trim();
+    if (txt.contains(':')) {
+      final p = txt.split(':');
+      if (p.length >= 2) {
+        final h = int.tryParse(p[0]);
+        final m = int.tryParse(p[1]);
+        if (h != null && m != null) inicial = TimeOfDay(hour: h, minute: m);
+      }
+    }
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: inicial,
+    );
+    if (picked != null && mounted) {
+      setState(() => ctrl.text = _fmtHora(picked));
+    }
   }
 
   void _syncFromPerfil(UtileroPerfil p) {
@@ -65,6 +108,8 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
     _horarioInicio.text = p.horarioInicio ?? '';
     _horarioFin.text = p.horarioFin ?? '';
     _bodega.text = p.bodegaPrincipal ?? '';
+    _institucion.text = p.institucion ?? '';
+    _turnoSeleccionado = p.turno?.isNotEmpty == true ? p.turno : null;
     _deporteId = p.deporteId;
     _perfilSincronizado = true;
   }
@@ -113,10 +158,11 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
         correo: _correo.text,
         telefono: _telefono.text,
         deporteId: _deporteId,
-        turno: _turno.text,
+        turno: _turnoSeleccionado ?? _turno.text,
         horarioInicio: _horarioInicio.text,
         horarioFin: _horarioFin.text,
         bodegaPrincipal: _bodega.text,
+        institucion: _institucion.text,
       );
       if (mounted) {
         setState(() => _editando = false);
@@ -163,6 +209,13 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
     }
   }
 
+  void _ir(BuildContext context, Widget screen) {
+    Navigator.push<void>(
+      context,
+      MaterialPageRoute(builder: (_) => screen),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<UtileroPerfil>(
@@ -172,10 +225,91 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
         if (p != null && !_perfilSincronizado) {
           _syncFromPerfil(p);
         }
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Card(
+        return Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 720),
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
+                FutureBuilder<UtileroResumenDashboard>(
+                  future: UtileroService.cargarResumen(
+                    widget.usuarioId,
+                    deporteId: widget.deporteId ?? _deporteId,
+                  ),
+                  builder: (context, rSnap) {
+                    if (!rSnap.hasData) {
+                      return const SizedBox(
+                        height: 48,
+                        child: Center(child: CircularProgressIndicator()),
+                      );
+                    }
+                    final r = rSnap.data!;
+                    return _AlertasPerfilUtilero(
+                      resumen: r,
+                      onStockBajo: () => _ir(context, UtileroMaterialDanadoScreen(
+                        usuarioId: widget.usuarioId,
+                        deporteId: widget.deporteId ?? _deporteId,
+                      )),
+                      onDevoluciones: () => _ir(context, UtileroDevolucionesPendientesScreen(
+                        usuarioId: widget.usuarioId,
+                        usuarioEmail: widget.usuarioEmail,
+                        deporteId: widget.deporteId ?? _deporteId,
+                      )),
+                      onEntrenamientos: () => _ir(context, UtileroCalendarioScreen(
+                        usuarioId: widget.usuarioId,
+                        deporteId: widget.deporteId ?? _deporteId,
+                      )),
+                      onNotificaciones: () => UtileroSeccionScreen.abrir(
+                        context,
+                        titulo: 'Notificaciones',
+                        usuarioId: widget.usuarioId,
+                        usuarioEmail: widget.usuarioEmail,
+                        nombreInicial: widget.nombreInicial,
+                        seccion: UtileroSeccion.notificaciones,
+                      ),
+                    );
+                  },
+                ),
+                const SizedBox(height: 8),
+                _MaterialesLegacyBanner(
+                  deporteId: widget.deporteId ?? _deporteId,
+                ),
+                const SizedBox(height: 8),
+                Text('Accesos rápidos', style: DtflyTheme.panelTitle),
+                const SizedBox(height: 8),
+                _AccesosRapidosPerfil(
+                  onCalendario: () => _ir(context, UtileroCalendarioScreen(
+                    usuarioId: widget.usuarioId,
+                    deporteId: widget.deporteId ?? _deporteId,
+                  )),
+                  onChecklist: () => _ir(context, UtileroChecklistScreen(
+                    usuarioId: widget.usuarioId,
+                  )),
+                  onHistorial: () => UtileroSeccionScreen.abrir(
+                    context,
+                    titulo: 'Historial',
+                    usuarioId: widget.usuarioId,
+                    usuarioEmail: widget.usuarioEmail,
+                    nombreInicial: widget.nombreInicial,
+                    seccion: UtileroSeccion.historial,
+                  ),
+                  onContactoDt: () => _ir(context, UtileroContactoDtScreen(
+                    deporteId: widget.deporteId ?? _deporteId,
+                  )),
+                  onReportes: () => _ir(context, UtileroReportesScreen(
+                    usuarioId: widget.usuarioId,
+                    usuarioEmail: widget.usuarioEmail,
+                    deporteId: widget.deporteId ?? _deporteId,
+                  )),
+                  onHerramientas: () => _ir(context, UtileroHerramientasScreen(
+                    usuarioId: widget.usuarioId,
+                    usuarioEmail: widget.usuarioEmail,
+                    nombre: widget.nombreInicial,
+                    deporteId: widget.deporteId ?? _deporteId,
+                  )),
+                ),
+                const SizedBox(height: 16),
+                Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -236,172 +370,265 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
                             : 'Guardar: ${DeportesCategoria.nombreVisible(_deporteId)}',
                       ),
                     ),
+                    if (widget.onCambiarSeleccion != null) ...[
+                      const SizedBox(height: 10),
+                      UtileroCambiarSeleccionButton(
+                        deporteId: widget.deporteId ?? _deporteId,
+                        onTap: widget.onCambiarSeleccion!,
+                      ),
+                    ],
                   ],
                 ),
               ),
             ),
             const SizedBox(height: 8),
-            Center(
-              child: Stack(
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Row(
+                  children: [
+                    Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 34,
+                          backgroundColor: DtflyTheme.surfaceMuted,
+                          backgroundImage: p?.fotoPerfil != null
+                              ? NetworkImage(p!.fotoPerfil!)
+                              : null,
+                          child: p?.fotoPerfil == null
+                              ? const Icon(Icons.person, size: 34)
+                              : null,
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Material(
+                            color: DtflyTheme.primary,
+                            shape: const CircleBorder(),
+                            child: InkWell(
+                              customBorder: const CircleBorder(),
+                              onTap: _cambiarFoto,
+                              child: const Padding(
+                                padding: EdgeInsets.all(4),
+                                child: Icon(
+                                  Icons.camera_alt,
+                                  size: 14,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            p?.nombreCompleto ?? widget.nombreInicial,
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          Text(
+                            '${p?.cargo ?? "Utilero"} · ${p?.activo == true ? "Activo" : "Inactivo"}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: DtflyTheme.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            Card(
+              child: ExpansionTile(
+                initiallyExpanded: false,
+                title: const Text('Datos laborales'),
                 children: [
-                  CircleAvatar(
-                    radius: 52,
-                    backgroundColor: DtflyTheme.surfaceMuted,
-                    backgroundImage: p?.fotoPerfil != null
-                        ? NetworkImage(p!.fotoPerfil!)
-                        : null,
-                    child: p?.fotoPerfil == null
-                        ? const Icon(Icons.person, size: 52)
-                        : null,
+                  _infoTileCompact(
+                    'Turno',
+                    p?.turno?.isNotEmpty == true ? p!.turno! : '—',
                   ),
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: IconButton.filled(
-                      onPressed: _cambiarFoto,
-                      icon: const Icon(Icons.camera_alt, size: 20),
+                  _infoTileCompact(
+                    'Horario',
+                    p?.horarioInicio?.isNotEmpty == true
+                        ? '${p!.horarioInicio} – ${p.horarioFin ?? ""}'
+                        : '—',
+                  ),
+                  _infoTileCompact(
+                    'Institución',
+                    p?.institucion?.isNotEmpty == true ? p!.institucion! : '—',
+                  ),
+                  _infoTileCompact(
+                    'Bodega',
+                    p?.bodegaPrincipal?.isNotEmpty == true
+                        ? p!.bodegaPrincipal!
+                        : '—',
+                  ),
+                ],
+              ),
+            ),
+            Card(
+              child: ExpansionTile(
+                title: const Text('Datos personales'),
+                children: [
+                  if (_editando) ...[
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Column(
+                        children: [
+                          TextField(
+                            controller: _nombre,
+                            decoration: const InputDecoration(
+                              labelText: 'Nombre',
+                            ),
+                          ),
+                          TextField(
+                            controller: _apellido,
+                            decoration: const InputDecoration(
+                              labelText: 'Apellido',
+                            ),
+                          ),
+                          TextField(
+                            controller: _correo,
+                            decoration: const InputDecoration(
+                              labelText: 'Correo',
+                            ),
+                          ),
+                          TextField(
+                            controller: _telefono,
+                            decoration: const InputDecoration(
+                              labelText: 'Teléfono',
+                            ),
+                            keyboardType: TextInputType.phone,
+                          ),
+                          TextField(
+                            controller: _institucion,
+                            decoration: const InputDecoration(
+                              labelText: 'Institución',
+                            ),
+                          ),
+                          DropdownButtonFormField<String>(
+                            initialValue:
+                                _turnosBodega.contains(_turnoSeleccionado)
+                                    ? _turnoSeleccionado
+                                    : null,
+                            decoration: const InputDecoration(
+                              labelText: 'Turno',
+                            ),
+                            items: [
+                              for (final t in _turnosBodega)
+                                DropdownMenuItem(value: t, child: Text(t)),
+                            ],
+                            onChanged: (v) => setState(() {
+                              _turnoSeleccionado = v;
+                              _turno.text = v ?? '';
+                            }),
+                          ),
+                          TextField(
+                            controller: _bodega,
+                            decoration: const InputDecoration(
+                              labelText: 'Bodega',
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () =>
+                                      _elegirHora(_horarioInicio),
+                                  child: Text(
+                                    _horarioInicio.text.isEmpty
+                                        ? 'Hora inicio'
+                                        : _horarioInicio.text,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: OutlinedButton(
+                                  onPressed: () => _elegirHora(_horarioFin),
+                                  child: Text(
+                                    _horarioFin.text.isEmpty
+                                        ? 'Hora fin'
+                                        : _horarioFin.text,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    _infoTileCompact(
+                      'Correo',
+                      p?.correo ?? widget.usuarioEmail,
+                    ),
+                    _infoTileCompact(
+                      'Teléfono',
+                      p?.telefono.isNotEmpty == true ? p!.telefono : '—',
+                    ),
+                  ],
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 4, 12, 12),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: _guardando
+                                ? null
+                                : () =>
+                                    setState(() => _editando = !_editando),
+                            child: Text(_editando ? 'Cancelar' : 'Editar'),
+                          ),
+                        ),
+                        if (_editando) ...[
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton(
+                              onPressed: _guardando ? null : _guardar,
+                              child: const Text('Guardar'),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 16),
-            _infoTile('Cargo', p?.cargo ?? 'Utilero'),
-            _infoTile(
-              'Selección actual',
-              p?.deporteNombre?.isNotEmpty == true
-                  ? p!.deporteNombre!
-                  : 'Sin selección — elige una arriba',
-            ),
-            _infoTile(
-              'Fecha de ingreso',
-              p?.fechaIngreso != null
-                  ? '${p!.fechaIngreso!.day}/${p.fechaIngreso!.month}/${p.fechaIngreso!.year}'
-                  : '—',
-            ),
-            _infoTile(
-              'Estado',
-              p?.estado ?? 'Activo',
-              trailing: Chip(
-                label: Text(p?.activo == true ? 'Activo' : 'Inactivo'),
-                backgroundColor: (p?.activo ?? true)
-                    ? DtflyTheme.accent.withValues(alpha: 0.2)
-                    : DtflyTheme.fieldRed.withValues(alpha: 0.2),
-              ),
-            ),
-            _infoTile(
-              'Turno de bodega',
-              p?.turno?.isNotEmpty == true ? p!.turno! : '—',
-            ),
-            _infoTile(
-              'Horario',
-              p?.horarioInicio?.isNotEmpty == true
-                  ? '${p!.horarioInicio} – ${p.horarioFin ?? ""}'
-                  : '—',
-            ),
-            _infoTile(
-              'Bodega / ubicación',
-              p?.bodegaPrincipal?.isNotEmpty == true
-                  ? p!.bodegaPrincipal!
-                  : '—',
-            ),
-            const SizedBox(height: 16),
-            if (_editando) ...[
-              TextField(
-                controller: _nombre,
-                decoration: const InputDecoration(labelText: 'Nombre'),
-              ),
-              TextField(
-                controller: _apellido,
-                decoration: const InputDecoration(labelText: 'Apellido'),
-              ),
-              TextField(
-                controller: _correo,
-                decoration: const InputDecoration(labelText: 'Correo'),
-              ),
-              TextField(
-                controller: _telefono,
-                decoration: const InputDecoration(labelText: 'Teléfono'),
-                keyboardType: TextInputType.phone,
-              ),
-              TextField(
-                controller: _turno,
-                decoration: const InputDecoration(
-                  labelText: 'Turno (Mañana, Tarde, Completo)',
-                ),
-              ),
-              TextField(
-                controller: _horarioInicio,
-                decoration: const InputDecoration(
-                  labelText: 'Horario inicio (ej. 08:00)',
-                ),
-              ),
-              TextField(
-                controller: _horarioFin,
-                decoration: const InputDecoration(
-                  labelText: 'Horario fin (ej. 14:00)',
-                ),
-              ),
-              TextField(
-                controller: _bodega,
-                decoration: const InputDecoration(
-                  labelText: 'Bodega principal (pabellón, casillero)',
-                ),
-              ),
-            ] else ...[
-              _infoTile('Nombre', p?.nombreCompleto ?? widget.nombreInicial),
-              _infoTile('Correo', p?.correo ?? widget.usuarioEmail),
-              _infoTile('Teléfono', p?.telefono.isNotEmpty == true ? p!.telefono : '—'),
-            ],
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: _guardando
-                        ? null
-                        : () => setState(() => _editando = !_editando),
-                    child: Text(_editando ? 'Cancelar' : 'Editar perfil'),
-                  ),
-                ),
-                if (_editando) ...[
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: FilledButton(
-                      onPressed: _guardando ? null : _guardar,
-                      child: _guardando
-                          ? const SizedBox(
-                              height: 20,
-                              width: 20,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text('Guardar'),
-                    ),
-                  ),
-                ],
-              ],
-            ),
-            const SizedBox(height: 16),
-            OutlinedButton.icon(
-              onPressed: () {
-                Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => InventarioScreen(
-                      entrenadorEmail: widget.usuarioEmail,
-                      utileroUsuarioId: widget.usuarioId,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.inventory_2),
-              label: const Text('Acceso rápido al inventario'),
-            ),
-            const SizedBox(height: 24),
-            Text('Resumen en tiempo real', style: DtflyTheme.panelTitle),
             const SizedBox(height: 8),
+            Text(
+              'Resumen de tu selección',
+              style: DtflyTheme.panelTitle,
+            ),
+            if (widget.deporteId != null || _deporteId != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(
+                  DeportesCategoria.nombreVisible(
+                    widget.deporteId ?? _deporteId,
+                  ),
+                  style: const TextStyle(
+                    color: DtflyTheme.textSecondary,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
             FutureBuilder<UtileroResumenDashboard>(
-              future: UtileroService.cargarResumen(widget.usuarioId),
+              future: UtileroService.cargarResumen(
+                widget.usuarioId,
+                deporteId: widget.deporteId ?? _deporteId,
+              ),
               builder: (context, rSnap) {
                 if (!rSnap.hasData) {
                   return const Center(child: CircularProgressIndicator());
@@ -412,8 +639,14 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
                   runSpacing: 8,
                   children: [
                     Chip(label: Text('Registrados: ${r.materialesRegistrados}')),
-                    Chip(label: Text('Entregados: ${r.materialesEntregados}')),
-                    Chip(label: Text('Devueltos: ${r.materialesDevueltos}')),
+                    Chip(label: Text('Prestados hoy: ${r.entregadosHoy}')),
+                    Chip(label: Text('Devueltos hoy: ${r.devueltosHoy}')),
+                    Chip(
+                      label: Text('Pendientes: ${r.prestamosPendientes}'),
+                      backgroundColor: r.prestamosPendientes > 0
+                          ? DtflyTheme.fieldRed.withValues(alpha: 0.15)
+                          : null,
+                    ),
                     Chip(
                       label: Text('Stock bajo: ${r.stockBajo}'),
                       backgroundColor:
@@ -425,11 +658,18 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
                         backgroundColor:
                             DtflyTheme.accentOrange.withValues(alpha: 0.2),
                       ),
+                    Chip(
+                      label: Text(
+                        'Entrenamientos semana: ${r.entrenamientosSemana}',
+                      ),
+                    ),
                   ],
                 );
               },
             ),
           ],
+            ),
+          ),
         );
       },
     );
@@ -443,6 +683,326 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
         subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
         trailing: trailing,
       ),
+    );
+  }
+
+  Widget _infoTileCompact(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                color: DtflyTheme.textMuted,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MaterialesLegacyBanner extends StatefulWidget {
+  const _MaterialesLegacyBanner({this.deporteId});
+
+  final String? deporteId;
+
+  @override
+  State<_MaterialesLegacyBanner> createState() => _MaterialesLegacyBannerState();
+}
+
+class _MaterialesLegacyBannerState extends State<_MaterialesLegacyBanner> {
+  bool _migrando = false;
+
+  Future<void> _asignarSeleccion(BuildContext context, int cantidad) async {
+    final dep = widget.deporteId;
+    if (dep == null || dep.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Elige una selección deportiva primero')),
+      );
+      return;
+    }
+    final nombre = DeportesCategoria.nombreVisible(dep);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Asignar materiales antiguos'),
+        content: Text(
+          'Hay $cantidad material(es) sin selección.\n\n'
+          '¿Asignarlos todos a $nombre?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Asignar'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    setState(() => _migrando = true);
+    try {
+      final n = await InventarioService.asignarDeporteMaterialesLegacy(
+        deporteId: dep,
+      );
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$n material(es) asignados a $nombre')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('$e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _migrando = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<MaterialInventario>>(
+      stream: InventarioService.streamMaterialesSinDeporte(),
+      builder: (context, snap) {
+        final n = snap.data?.length ?? 0;
+        if (n == 0) return const SizedBox.shrink();
+        return Card(
+          color: DtflyTheme.accentOrange.withValues(alpha: 0.12),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  '$n material(es) sin selección',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 4),
+                const Text(
+                  'Registros antiguos que no aparecen en tu inventario actual.',
+                  style: TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 8),
+                OutlinedButton(
+                  onPressed: _migrando
+                      ? null
+                      : () => _asignarSeleccion(context, n),
+                  child: _migrando
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Asignar a mi selección actual'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _AlertasPerfilUtilero extends StatelessWidget {
+  const _AlertasPerfilUtilero({
+    required this.resumen,
+    required this.onStockBajo,
+    required this.onDevoluciones,
+    required this.onEntrenamientos,
+    required this.onNotificaciones,
+  });
+
+  final UtileroResumenDashboard resumen;
+  final VoidCallback onStockBajo;
+  final VoidCallback onDevoluciones;
+  final VoidCallback onEntrenamientos;
+  final VoidCallback onNotificaciones;
+
+  @override
+  Widget build(BuildContext context) {
+    final alertas = <Widget>[];
+
+    if (resumen.prestamosPendientes > 0) {
+      alertas.add(_AlertaTile(
+        icono: Icons.assignment_return,
+        titulo: '${resumen.prestamosPendientes} devolución(es) pendiente(s)',
+        color: DtflyTheme.fieldRed,
+        onTap: onDevoluciones,
+      ));
+    }
+    if (resumen.stockBajo > 0) {
+      alertas.add(_AlertaTile(
+        icono: Icons.warning_amber_outlined,
+        titulo: '${resumen.stockBajo} material(es) con stock bajo',
+        color: DtflyTheme.accentOrange,
+        onTap: onStockBajo,
+      ));
+    }
+    if (resumen.materialesDanados > 0) {
+      alertas.add(_AlertaTile(
+        icono: Icons.build_circle_outlined,
+        titulo: '${resumen.materialesDanados} unidad(es) dañada(s)',
+        color: DtflyTheme.fieldRed,
+        onTap: onStockBajo,
+      ));
+    }
+    if (resumen.entrenamientosSemana > 0) {
+      alertas.add(_AlertaTile(
+        icono: Icons.calendar_month_outlined,
+        titulo: '${resumen.entrenamientosSemana} entrenamiento(s) esta semana',
+        color: DtflyTheme.primary,
+        onTap: onEntrenamientos,
+      ));
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text('Alertas del día', style: DtflyTheme.panelTitle),
+                ),
+                TextButton.icon(
+                  onPressed: onNotificaciones,
+                  icon: const Icon(Icons.notifications_outlined, size: 18),
+                  label: const Text('Ver todas'),
+                ),
+              ],
+            ),
+            if (alertas.isEmpty)
+              const ListTile(
+                leading: Icon(Icons.check_circle_outline, color: DtflyTheme.success),
+                title: Text('Todo en orden por ahora'),
+                subtitle: Text('Sin devoluciones urgentes ni stock crítico'),
+              )
+            else
+              ...alertas,
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AlertaTile extends StatelessWidget {
+  const _AlertaTile({
+    required this.icono,
+    required this.titulo,
+    required this.color,
+    required this.onTap,
+  });
+
+  final IconData icono;
+  final String titulo;
+  final Color color;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListTile(
+      dense: true,
+      leading: CircleAvatar(
+        radius: 18,
+        backgroundColor: color.withValues(alpha: 0.15),
+        child: Icon(icono, color: color, size: 20),
+      ),
+      title: Text(titulo, style: const TextStyle(fontWeight: FontWeight.w600)),
+      trailing: const Icon(Icons.chevron_right),
+      onTap: onTap,
+    );
+  }
+}
+
+class _AccesosRapidosPerfil extends StatelessWidget {
+  const _AccesosRapidosPerfil({
+    required this.onCalendario,
+    required this.onChecklist,
+    required this.onHistorial,
+    required this.onContactoDt,
+    required this.onReportes,
+    required this.onHerramientas,
+  });
+
+  final VoidCallback onCalendario;
+  final VoidCallback onChecklist;
+  final VoidCallback onHistorial;
+  final VoidCallback onContactoDt;
+  final VoidCallback onReportes;
+  final VoidCallback onHerramientas;
+
+  @override
+  Widget build(BuildContext context) {
+    final items = <({IconData icono, String label, VoidCallback onTap})>[
+      (icono: Icons.calendar_month_outlined, label: 'Calendario', onTap: onCalendario),
+      (icono: Icons.checklist_rtl, label: 'Checklist', onTap: onChecklist),
+      (icono: Icons.history, label: 'Historial', onTap: onHistorial),
+      (icono: Icons.contact_phone_outlined, label: 'Contacto DT', onTap: onContactoDt),
+      (icono: Icons.summarize_outlined, label: 'Reportes', onTap: onReportes),
+      (icono: Icons.dashboard_customize_outlined, label: 'Herramientas', onTap: onHerramientas),
+    ];
+
+    return GridView.count(
+      crossAxisCount: 3,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      mainAxisSpacing: 8,
+      crossAxisSpacing: 8,
+      childAspectRatio: 1.05,
+      children: [
+        for (final item in items)
+          Material(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: item.onTap,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: DtflyTheme.borderSubtle),
+                ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(item.icono, color: DtflyTheme.primary),
+                    const SizedBox(height: 6),
+                    Text(
+                      item.label,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -899,6 +1459,75 @@ class _UtileroConfigPanelState extends State<UtileroConfigPanel> {
                 );
               },
             ),
+            const Divider(height: 24),
+            Text('Correo de alertas', style: DtflyTheme.panelTitle),
+            const Text(
+              'Requiere Cloud Functions (plan Blaze). Sin eso queda encolado en Firestore.',
+              style: TextStyle(fontSize: 13, color: DtflyTheme.textSecondary),
+            ),
+            const SizedBox(height: 8),
+            StreamBuilder<Map<String, dynamic>?>(
+              stream: UtileroService.streamUltimoEmailEstado(widget.usuarioId),
+              builder: (context, emailSnap) {
+                final e = emailSnap.data;
+                if (e == null) {
+                  return const ListTile(
+                    dense: true,
+                    leading: Icon(Icons.mail_outline),
+                    title: Text('Sin correos encolados aún'),
+                  );
+                }
+                final estado = e['estado'] as String? ?? '—';
+                final asunto = e['asunto'] as String? ?? '';
+                final error = e['error'] as String?;
+                return ListTile(
+                  dense: true,
+                  leading: Icon(
+                    estado == 'enviado'
+                        ? Icons.check_circle_outline
+                        : estado == 'error'
+                            ? Icons.error_outline
+                            : Icons.schedule,
+                    color: estado == 'enviado'
+                        ? DtflyTheme.success
+                        : estado == 'error'
+                            ? DtflyTheme.fieldRed
+                            : DtflyTheme.textSecondary,
+                  ),
+                  title: Text('Último: $estado'),
+                  subtitle: Text(
+                    error?.isNotEmpty == true ? error! : asunto,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              },
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton.icon(
+              onPressed: () async {
+                try {
+                  await UtileroService.enviarEmailPrueba(widget.usuarioId);
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text(
+                          'Correo de prueba encolado. Revisa tu bandeja en 1-2 min.',
+                        ),
+                      ),
+                    );
+                  }
+                } catch (e) {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('$e')),
+                    );
+                  }
+                }
+              },
+              icon: const Icon(Icons.mark_email_unread_outlined),
+              label: const Text('Enviar correo de prueba'),
+            ),
           ],
           ),
         );
@@ -961,9 +1590,8 @@ class UtileroReportesPanel extends StatelessWidget {
             Navigator.push<void>(
               context,
               MaterialPageRoute(
-                builder: (_) => InventarioScreen(
-                  entrenadorEmail: usuarioEmail,
-                  utileroUsuarioId: usuarioId,
+                builder: (_) => UtileroKioscoStockScreen(
+                  usuarioId: usuarioId,
                 ),
               ),
             );

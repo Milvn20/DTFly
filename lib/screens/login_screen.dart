@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:flutter_application_1/core/app_build_info.dart';
 import 'package:flutter_application_1/core/app_roles.dart';
 import 'package:flutter_application_1/screens/registro_screen.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_seleccion_categoria_screen.dart';
@@ -103,6 +104,22 @@ class _LoginScreenState extends State<LoginScreen> {
               usuarioId: doc.id,
             ),
           ),
+        );
+        return;
+      }
+
+      if (rol == AppRoles.administrador) {
+        Navigator.pushAndRemoveUntil(
+          context,
+          MaterialPageRoute(
+            builder: (_) => RoleMainShell(
+              nombre: nombre,
+              rol: rol,
+              usuarioEmail: emailGuardado,
+              usuarioId: doc.id,
+            ),
+          ),
+          (route) => false,
         );
         return;
       }
@@ -253,6 +270,15 @@ class _LoginScreenState extends State<LoginScreen> {
                     },
                     style: TextButton.styleFrom(foregroundColor: DtflyTheme.primary),
                     child: const Text('Regístrate'),
+                  ),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Build ${AppBuildInfo.build} · ${AppBuildInfo.adminUiVersion}',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey.shade600,
+                    ),
                   ),
                 ],
               ),

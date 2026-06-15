@@ -46,3 +46,13 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# IDE / logs
+.idea/
+*.iml
+*.log
+
+# Orphan npm at project root (Functions has its own package.json)
+/package.json
+/package-lock.json
+/web_local/

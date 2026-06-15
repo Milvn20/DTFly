@@ -18,6 +18,7 @@ param(
     [string]$Destino = '',
     [string]$Carpeta = '',
     [string]$XamppHtdocs = '',
+    [string]$BuildId = '',
     [switch]$SoloCompilar,
     [switch]$AbrirNavegador
 )
@@ -61,14 +62,21 @@ if ([string]::IsNullOrWhiteSpace($Destino)) {
 
 $baseHref = if ($Carpeta -eq '' -or $Carpeta -eq '/') { '/' } else { "/$Carpeta/" }
 
-Write-Host "Compilando web (release) con base-href=$baseHref ..." -ForegroundColor Yellow
+if ([string]::IsNullOrWhiteSpace($BuildId)) {
+    $BuildId = Get-Date -Format 'yyyyMMddHHmm'
+}
+
+Write-Host "Compilando web (release) con base-href=$baseHref build=$BuildId ..." -ForegroundColor Yellow
 & $flutter pub get
-& $flutter build web --release --base-href=$baseHref
+# --no-wasm-dry-run evita que PowerShell trate el aviso de Wasm como error fatal ($ErrorActionPreference = Stop).
+& $flutter build web --release --base-href=$baseHref --no-wasm-dry-run --dart-define=DTFLY_BUILD=$BuildId
 
 $origen = Join-Path $PSScriptRoot 'build\web'
 if (-not (Test-Path (Join-Path $origen 'index.html'))) {
     throw 'La compilación no generó build\web\index.html'
 }
+
+& (Join-Path $PSScriptRoot 'stamp_web_build.ps1') -WebDir $origen -BuildId $BuildId | Out-Null
 
 Write-Host 'Compilación OK: build\web\' -ForegroundColor Green
 

@@ -243,6 +243,7 @@ class UtileroInventarioKiosco {
     required int cantidad,
     required UtileroPersonaEntrega persona,
     required String utileroId,
+    String? firmaRetiroBase64,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
     await InventarioService.registrarPrestamo(
@@ -252,12 +253,16 @@ class UtileroInventarioKiosco {
       prestadoA: persona.nombre,
       entrenadorEmail:
           persona.email.isNotEmpty ? persona.email : persona.nombre,
+      firmaRetiroBase64: firmaRetiroBase64,
+      firmadoPor: persona.nombre,
+      notas: firmaRetiroBase64 != null ? 'Retiro con firma digital' : '',
     );
     await UtileroService.registrarActividad(
       utileroId: utileroId,
       accion: 'Préstamo',
       descripcion:
-          '$cantidad ${materialNombre.toLowerCase()} a ${persona.nombre}',
+          '$cantidad ${materialNombre.toLowerCase()} a ${persona.nombre}'
+          '${firmaRetiroBase64 != null ? " (firmado)" : ""}',
       material: materialNombre,
       cantidad: cantidad,
     );
@@ -269,6 +274,7 @@ class UtileroInventarioKiosco {
     required UtileroPersonaEntrega persona,
     required String utileroId,
     String? deporteId,
+    String? firmaRetiroBase64,
   }) async {
     if (cantidad <= 0) throw StateError('Ingresa una cantidad');
     final mat = await asegurarMaterial(cat, deporteId: deporteId);
@@ -278,11 +284,16 @@ class UtileroInventarioKiosco {
       cantidad: cantidad,
       prestadoA: persona.nombre,
       entrenadorEmail: persona.email.isNotEmpty ? persona.email : persona.nombre,
+      firmaRetiroBase64: firmaRetiroBase64,
+      firmadoPor: persona.nombre,
+      notas: firmaRetiroBase64 != null ? 'Retiro con firma digital' : '',
     );
     await UtileroService.registrarActividad(
       utileroId: utileroId,
       accion: 'Préstamo',
-      descripcion: '$cantidad ${cat.nombre.toLowerCase()} a ${persona.nombre}',
+      descripcion:
+          '$cantidad ${cat.nombre.toLowerCase()} a ${persona.nombre}'
+          '${firmaRetiroBase64 != null ? " (firmado)" : ""}',
       material: cat.nombre,
       cantidad: cantidad,
     );

@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/core/deportes_categoria.dart';
+import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_devoluciones_pendientes_screen.dart';
 import 'package:flutter_application_1/screens/utilero/kiosco/utilero_kiosco_flujo_screen.dart';
-import 'package:flutter_application_1/screens/utilero/utilero_modulos_screens.dart';
-import 'package:flutter_application_1/screens/utilero/utilero_seccion_screen.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
@@ -13,6 +12,7 @@ import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_mockup_dashboard.dart';
 import 'package:flutter_application_1/widgets/utilero_agregar_material_dialog.dart';
 import 'package:flutter_application_1/widgets/utilero_cambiar_seleccion_button.dart';
+import 'package:flutter_application_1/widgets/utilero_inventario_acciones_bar.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
 import 'package:flutter_application_1/widgets/utilero_material_acciones_sheet.dart';
 import 'package:flutter_application_1/widgets/utilero_menu_sheet.dart';
@@ -54,7 +54,6 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
   UtileroResumenDashboard? _resumen;
   String? _fotoUrl;
   String? _deporteNombre;
-  int _notificacionesNoLeidas = 0;
 
   @override
   void initState() {
@@ -95,39 +94,60 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
       widget.usuarioId,
       deporteId: widget.deporteId,
     );
-    final noLeidas =
-        await UtileroService.contarNotificacionesNoLeidas(widget.usuarioId);
     if (mounted) {
-      setState(() {
-        _resumen = r;
-        _notificacionesNoLeidas = noLeidas;
-      });
+      setState(() => _resumen = r);
     }
   }
 
-  void _abrirHerramientas() {
+  void _abrirEliminar(BuildContext context) {
     Navigator.push<void>(
       context,
       MaterialPageRoute(
-        builder: (_) => UtileroHerramientasScreen(
+        builder: (_) => UtileroEliminarMaterialListaScreen(
           usuarioId: widget.usuarioId,
-          usuarioEmail: widget.usuarioEmail,
-          nombre: widget.nombre,
           deporteId: widget.deporteId,
         ),
       ),
     );
   }
 
-  void _abrirNotificaciones() {
-    UtileroSeccionScreen.abrir(
-      context,
-      titulo: 'Notificaciones',
-      usuarioId: widget.usuarioId,
-      usuarioEmail: widget.usuarioEmail,
-      nombreInicial: widget.nombre,
-      seccion: UtileroSeccion.notificaciones,
-    ).then((_) => _recargar());
+  void _gestionarMaterial(
+    BuildContext context,
+    List<MaterialInventario> mats,
+    UtileroMaterialCat cat,
+  ) {
+    final enCat = UtileroInventarioKiosco.materialesEnCategoria(mats, cat);
+    if (enCat.isEmpty) {
+      final agregadosCat = mats
+          .where((m) => UtileroInventarioKiosco.esMaterialPersonalizado(m))
+          .toList();
+      if (agregadosCat.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No hay registro de este material. Usa «Eliminar material» arriba '
+              'o agrega stock desde Inventario.',
+            ),
+          ),
+        );
+      }
+      return;
+    }
+    if (enCat.length == 1) {
+      UtileroMaterialAccionesSheet.mostrar(
+        context,
+        material: enCat.first,
+        usuarioId: widget.usuarioId,
+      );
+    } else {
+      UtileroMaterialesCategoriaSheet.mostrar(
+        context,
+        categoria: cat,
+        materiales: enCat,
+        usuarioId: widget.usuarioId,
+        deporteId: widget.deporteId,
+      );
+    }
   }
 
   String get _primerNombre {
@@ -204,7 +224,7 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                 deporteId: widget.deporteId,
                 onIrInventario: widget.onIrInventario ?? () {},
                 onIrPrestamos: widget.onIrPrestamos ?? () {},
-                onIrMas: widget.onIrMas ?? _abrirHerramientas,
+                onIrMas: widget.onIrMas ?? () {},
                 onCambiarSeleccion: widget.onCambiarSeleccion ?? () {},
                 onAgregarMaterial: widget.onAgregarMaterial ?? () {},
                 onEliminarMaterial: () {
@@ -227,72 +247,13 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
                 UtileroCambiarSeleccionButton(
                   deporteId: widget.deporteId,
                   onTap: widget.onCambiarSeleccion!,
-                  compacto: true,
                 ),
                 const SizedBox(height: 12),
               ],
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: _abrirHerramientas,
-                  icon: const Icon(Icons.dashboard_customize_outlined),
-                  label: const Text('Herramientas utilero'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFFC62828),
-                    side: const BorderSide(color: Color(0xFFC62828)),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _AccesoRapidoUtilero(
-                      icono: Icons.calendar_month_outlined,
-                      etiqueta: 'Calendario',
-                      onTap: () {
-                        Navigator.push<void>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UtileroCalendarioScreen(
-                              usuarioId: widget.usuarioId,
-                              deporteId: widget.deporteId,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _AccesoRapidoUtilero(
-                      icono: Icons.checklist_rtl,
-                      etiqueta: 'Checklist',
-                      onTap: () {
-                        Navigator.push<void>(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => UtileroChecklistScreen(
-                              usuarioId: widget.usuarioId,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _AccesoRapidoUtilero(
-                      icono: Icons.notifications_outlined,
-                      etiqueta: 'Alertas',
-                      badge: _notificacionesNoLeidas > 0
-                          ? '$_notificacionesNoLeidas'
-                          : null,
-                      onTap: _abrirNotificaciones,
-                    ),
-                  ),
-                ],
+              UtileroInventarioAccionesBar(
+                usuarioId: widget.usuarioId,
+                deporteId: widget.deporteId,
+                onEliminarLista: () => _abrirEliminar(context),
               ),
               const SizedBox(height: 12),
               Row(
@@ -340,290 +301,134 @@ class _UtileroKioscoHomeState extends State<UtileroKioscoHome> {
               ),
               const SizedBox(height: 10),
               Container(
-                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+                padding: const EdgeInsets.fromLTRB(12, 16, 12, 12),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(14),
                   border: Border.all(color: DtflyTheme.borderSubtle),
                 ),
-                child: Wrap(
-                  alignment: WrapAlignment.spaceAround,
-                  spacing: 8,
-                  runSpacing: 12,
-                  children: UtileroMaterialCat.todas.map((cat) {
-                    final n = stock[cat.id] ?? 0;
-                    return SizedBox(
-                      width: 72,
-                      child: Column(
-                        children: [
-                          UtileroMaterialIcon(categoria: cat, size: 24),
-                          const SizedBox(height: 4),
-                          Text(
-                            '$n',
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 20,
-                              color: Color(0xFFC62828),
+                child: Column(
+                  children: [
+                    Wrap(
+                      alignment: WrapAlignment.spaceAround,
+                      spacing: 8,
+                      runSpacing: 12,
+                      children: [
+                        for (final cat in UtileroMaterialCat.todas)
+                          Builder(
+                            builder: (context) {
+                              final n = stock[cat.id] ?? 0;
+                              final img = UtileroInventarioKiosco
+                                  .imagenDeCategoria(mats, cat);
+                              return InkWell(
+                                onTap: () =>
+                                    _gestionarMaterial(context, mats, cat),
+                                onLongPress: () => _abrirEliminar(context),
+                                borderRadius: BorderRadius.circular(8),
+                                child: SizedBox(
+                                  width: 72,
+                                  child: Column(
+                                    children: [
+                                      UtileroMaterialIcon(
+                                        categoria: cat,
+                                        size: 28,
+                                        imagenUrl: img.url,
+                                        imagenBase64: img.base64,
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '$n',
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 20,
+                                          color: Color(0xFFC62828),
+                                        ),
+                                      ),
+                                      Text(
+                                        cat.nombre,
+                                        textAlign: TextAlign.center,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          color: DtflyTheme.textSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                        ...agregados.map((m) {
+                          final cat = UtileroMaterialCat.todas
+                              .firstWhere((c) => c.id == 'mas');
+                          return InkWell(
+                            onTap: () => UtileroMaterialAccionesSheet.mostrar(
+                              context,
+                              material: m,
+                              usuarioId: widget.usuarioId,
                             ),
-                          ),
-                          Text(
-                            cat.nombre,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: DtflyTheme.textSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Toca Inventario para ver todo el stock',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 12, color: DtflyTheme.textMuted),
-              ),
-              const SizedBox(height: 20),
-              DtflyMockupPrimaryButton(
-                texto: 'Prestar material',
-                onTap: () => _abrirFlujo(UtileroFlujoKiosco.prestar),
-              ),
-              const SizedBox(height: 12),
-              DtflyMockupPrimaryButton(
-                texto: 'Gestionar inventario',
-                onTap: widget.onIrInventario ?? () => _abrirFlujo(UtileroFlujoKiosco.recibir),
-              ),
-              const SizedBox(height: 12),
-              DtflyMockupPrimaryButton(
-                texto: '+ Agregar material con tu foto',
-                onTap: () => UtileroAgregarMaterialDialog.mostrar(
-                  context,
-                  usuarioId: widget.usuarioId,
-                  deporteId: widget.deporteId,
-                ),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Inventario disponible',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-              const SizedBox(height: 10),
-              ...UtileroMaterialCat.todas
-                  .where((c) => c.id != 'mas')
-                  .map((cat) {
-                final cant = stock[cat.id] ?? 0;
-                final bajo = cant <= UtileroMaterialCat.umbralStockBajo;
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Material(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(14),
-                    child: InkWell(
-                      borderRadius: BorderRadius.circular(14),
-                      onTap: widget.onIrInventario,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(
-                            color: bajo
-                                ? const Color(0xFFC62828)
-                                : DtflyTheme.borderSubtle,
-                          ),
-                        ),
-                        child: Row(
-                          children: [
-                            UtileroMaterialIcon(categoria: cat, size: 28),
-                            const SizedBox(width: 12),
-                            Expanded(
+                            onLongPress: () => _abrirEliminar(context),
+                            borderRadius: BorderRadius.circular(8),
+                            child: SizedBox(
+                              width: 72,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
+                                  UtileroMaterialIcon(
+                                    categoria: cat,
+                                    size: 28,
+                                    imagenUrl: m.imagenUrl,
+                                    imagenBase64: m.imagenBase64,
+                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    cat.nombre,
+                                    '${m.cantidadDisponible}',
                                     style: const TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 20,
+                                      color: Color(0xFFC62828),
                                     ),
                                   ),
                                   Text(
-                                    bajo ? 'Stock bajo' : '$cant disponibles',
-                                    style: TextStyle(
-                                      fontSize: 13,
-                                      color: bajo
-                                          ? const Color(0xFFC62828)
-                                          : DtflyTheme.textSecondary,
+                                    m.nombre,
+                                    textAlign: TextAlign.center,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 10,
+                                      color: DtflyTheme.textSecondary,
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                            Text(
-                              '$cant',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 20,
-                                color: bajo
-                                    ? const Color(0xFFC62828)
-                                    : DtflyTheme.success,
-                              ),
-                            ),
-                            const Icon(
-                              Icons.chevron_right,
-                              color: DtflyTheme.textMuted,
-                            ),
-                          ],
-                        ),
+                          );
+                        }),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    DtflyMockupPrimaryButton(
+                      texto: '+ Agregar material',
+                      onTap: () => UtileroAgregarMaterialDialog.mostrar(
+                        context,
+                        usuarioId: widget.usuarioId,
+                        deporteId: widget.deporteId,
                       ),
                     ),
-                  ),
-                );
-              }),
-              if (agregados.isNotEmpty) ...[
-                const SizedBox(height: 8),
-                const Text(
-                  'Materiales agregados',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                ...agregados.map((m) {
-                  final cat = UtileroMaterialCat.todas
-                      .firstWhere((c) => c.id == 'mas');
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Material(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                      child: InkWell(
-                        borderRadius: BorderRadius.circular(14),
-                        onTap: widget.onIrInventario,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 10,
-                          ),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: DtflyTheme.borderSubtle),
-                          ),
-                          child: Row(
-                            children: [
-                              UtileroMaterialIcon(
-                                categoria: cat,
-                                imagenUrl: m.imagenUrl,
-                                imagenBase64: m.imagenBase64,
-                                size: 32,
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: Text(
-                                  m.nombre,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                              ),
-                              Text(
-                                '${m.cantidadDisponible}',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 18,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }),
-              ],
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Mantén pulsado un material para ir a eliminar.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 10, color: DtflyTheme.textSecondary),
+              ),
             ],
           ),
         );
       },
-    );
-  }
-}
-
-class _AccesoRapidoUtilero extends StatelessWidget {
-  const _AccesoRapidoUtilero({
-    required this.icono,
-    required this.etiqueta,
-    required this.onTap,
-    this.badge,
-  });
-
-  final IconData icono;
-  final String etiqueta;
-  final VoidCallback onTap;
-  final String? badge;
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: Colors.white,
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: DtflyTheme.borderSubtle),
-          ),
-          child: Column(
-            children: [
-              Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  Icon(icono, color: const Color(0xFFC62828), size: 26),
-                  if (badge != null)
-                    Positioned(
-                      right: -8,
-                      top: -6,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 5,
-                          vertical: 1,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFC62828),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Text(
-                          badge!,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                etiqueta,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

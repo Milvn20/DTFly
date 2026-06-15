@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/models/material_inventario.dart';
+
 /// Categorías de material para el módulo kiosco del utilero.
 class UtileroMaterialCat {
   const UtileroMaterialCat({
@@ -93,6 +95,35 @@ class UtileroMaterialCat {
       if (c.id == id) return c;
     }
     return null;
+  }
+
+  /// Vallas, escaleras, cuerdas, etc. — visibles en todas las selecciones.
+  static const Set<String> idsCompartidosEntreDeportes = {
+    'vallas',
+    'escaleras',
+  };
+
+  static bool esCompartidoEntreDeportes(String? categoriaId) {
+    if (categoriaId == null || categoriaId.isEmpty) return false;
+    return idsCompartidosEntreDeportes.contains(categoriaId);
+  }
+
+  /// Por nombre cuando no encaja en una categoría fija (cuerda, soga, arcos…).
+  static bool nombreEsCompartido(String nombre, {String? categoria}) {
+    final t = '${categoria ?? ''} $nombre'.toLowerCase();
+    return t.contains('valla') ||
+        t.contains('escalera') ||
+        t.contains('cuerda') ||
+        t.contains('soga') ||
+        t.contains('cinta') ||
+        t.contains('arco mini') ||
+        t.contains('arco de');
+  }
+
+  static bool materialEsCompartido(MaterialInventario material) {
+    final cat = resolver('${material.categoria} ${material.nombre}');
+    return esCompartidoEntreDeportes(cat.id) ||
+        nombreEsCompartido(material.nombre, categoria: material.categoria);
   }
 
   static UtileroMaterialCat resolver(String texto) {

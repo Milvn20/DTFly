@@ -7,8 +7,9 @@ import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_inventario_kiosco.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_mockup_dashboard.dart';
-import 'package:flutter_application_1/widgets/utilero_agregar_material_dialog.dart';
 import 'package:flutter_application_1/widgets/utilero_cambiar_seleccion_button.dart';
+import 'package:flutter_application_1/widgets/utilero_eliminar_material_dialog.dart';
+import 'package:flutter_application_1/widgets/utilero_inventario_acciones_bar.dart';
 import 'package:flutter_application_1/widgets/utilero_ingresar_stock_dialog.dart';
 import 'package:flutter_application_1/widgets/utilero_material_acciones_sheet.dart';
 import 'package:flutter_application_1/widgets/utilero_material_icon.dart';
@@ -33,14 +34,6 @@ class UtileroKioscoStockTab extends StatelessWidget {
     return 'Inventario · ${DeportesCategoria.nombreVisible(deporteId)}';
   }
 
-  void _agregar(BuildContext context) {
-    UtileroAgregarMaterialDialog.mostrar(
-      context,
-      usuarioId: usuarioId,
-      deporteId: deporteId,
-    );
-  }
-
   void _abrirEliminar(BuildContext context) {
     Navigator.push<void>(
       context,
@@ -50,6 +43,17 @@ class UtileroKioscoStockTab extends StatelessWidget {
           deporteId: deporteId,
         ),
       ),
+    );
+  }
+
+  void _eliminarMaterial(
+    BuildContext context,
+    MaterialInventario material,
+  ) {
+    UtileroEliminarMaterialDialog.confirmar(
+      context,
+      material: material,
+      usuarioId: usuarioId,
     );
   }
 
@@ -71,88 +75,14 @@ class UtileroKioscoStockTab extends StatelessWidget {
             ),
             const SizedBox(height: 8),
           ],
-          Row(
-            children: [
-              Expanded(
-                child: Material(
-                  color: const Color(0xFFC62828),
-                  borderRadius: BorderRadius.circular(14),
-                  elevation: 1,
-                  child: InkWell(
-                    onTap: () => _agregar(context),
-                    borderRadius: BorderRadius.circular(14),
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 9, horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.add_circle, color: Colors.white, size: 18),
-                          SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              'Agregar',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Material(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(14),
-                  child: InkWell(
-                    onTap: () => _abrirEliminar(context),
-                    borderRadius: BorderRadius.circular(14),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        vertical: 9,
-                        horizontal: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: const Color(0xFFC62828)),
-                      ),
-                      child: const Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.delete_outline,
-                            color: Color(0xFFC62828),
-                            size: 18,
-                          ),
-                          SizedBox(width: 4),
-                          Flexible(
-                            child: Text(
-                              'Eliminar',
-                              style: TextStyle(
-                                color: Color(0xFFC62828),
-                                fontWeight: FontWeight.bold,
-                                fontSize: 13,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          UtileroInventarioAccionesBar(
+            usuarioId: usuarioId,
+            deporteId: deporteId,
+            onEliminarLista: () => _abrirEliminar(context),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 8),
           const Text(
-            'Toca un material para agregar stock o eliminarlo',
+            'Toca un material para gestionarlo. Usa el botón rojo arriba para eliminar.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 10, color: DtflyTheme.textSecondary),
           ),
@@ -216,6 +146,9 @@ class UtileroKioscoStockTab extends StatelessWidget {
                             imagenUrl: img.url,
                             imagenBase64: img.base64,
                             mostrarEliminar: enCat.isNotEmpty,
+                            onEliminar: enCat.length == 1
+                                ? () => _eliminarMaterial(context, enCat.first)
+                                : () => _abrirEliminar(context),
                             onTap: () {
                               if (enCat.isEmpty) {
                                 UtileroIngresarStockDialog.mostrarPorCategoria(
@@ -262,6 +195,7 @@ class UtileroKioscoStockTab extends StatelessWidget {
                             imagenUrl: m.imagenUrl,
                             imagenBase64: m.imagenBase64,
                             mostrarEliminar: true,
+                            onEliminar: () => _eliminarMaterial(context, m),
                             onTap: () => UtileroMaterialAccionesSheet.mostrar(
                               context,
                               material: m,
@@ -291,6 +225,7 @@ class _InventarioMiniCard extends StatelessWidget {
     required this.categoria,
     required this.onTap,
     this.mostrarEliminar = false,
+    this.onEliminar,
     this.imagenUrl,
     this.imagenBase64,
   });
@@ -304,6 +239,7 @@ class _InventarioMiniCard extends StatelessWidget {
   final String? imagenBase64;
   final VoidCallback onTap;
   final bool mostrarEliminar;
+  final VoidCallback? onEliminar;
 
   @override
   Widget build(BuildContext context) {
@@ -392,7 +328,26 @@ class _InventarioMiniCard extends StatelessWidget {
                   ],
                 ),
               ),
-              if (mostrarEliminar)
+              if (mostrarEliminar && onEliminar != null)
+                Material(
+                  color: Colors.white,
+                  shape: const CircleBorder(
+                    side: BorderSide(color: Color(0xFFC62828), width: 0.8),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onEliminar,
+                    child: const Padding(
+                      padding: EdgeInsets.all(3),
+                      child: Icon(
+                        Icons.delete_outline,
+                        size: 14,
+                        color: Color(0xFFC62828),
+                      ),
+                    ),
+                  ),
+                )
+              else if (mostrarEliminar)
                 const Padding(
                   padding: EdgeInsets.only(left: 2),
                   child: Icon(

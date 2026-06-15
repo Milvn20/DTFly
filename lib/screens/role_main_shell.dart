@@ -8,6 +8,10 @@ import 'package:flutter_application_1/models/entrenamiento.dart';
 import 'package:flutter_application_1/models/nota_dt.dart';
 import 'package:flutter_application_1/models/partido.dart';
 import 'package:flutter_application_1/models/blog_publicacion.dart';
+import 'package:flutter_application_1/screens/admin/admin_gestion_tab.dart';
+import 'package:flutter_application_1/screens/admin/admin_inicio_tab.dart';
+import 'package:flutter_application_1/screens/admin/admin_inventario_shell_tab.dart';
+import 'package:flutter_application_1/screens/admin/admin_mas_tab.dart';
 import 'package:flutter_application_1/screens/blog/blog_list_screen.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_estadisticas_screen.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_historial_screen.dart';
@@ -132,8 +136,26 @@ class _RoleMainShellState extends State<RoleMainShell> {
   @override
   Widget build(BuildContext context) {
     final rol = AppRoles.normalize(widget.rol);
+
     final bodies = _bodiesFor(rol, context);
     final idx = _index.clamp(0, bodies.length - 1);
+
+    if (rol == AppRoles.administrador) {
+      return Scaffold(
+        backgroundColor: DtflyTheme.background,
+        body: bodies[idx],
+        bottomNavigationBar: DtflyBottomNav(
+          currentIndex: idx,
+          onTap: (i) => setState(() => _index = i),
+          items: const [
+            DtflyNavItem(icon: Icons.dashboard_outlined, label: 'Inicio'),
+            DtflyNavItem(icon: Icons.admin_panel_settings_outlined, label: 'Gestión'),
+            DtflyNavItem(icon: Icons.inventory_2_outlined, label: 'Inventario'),
+            DtflyNavItem(icon: Icons.menu, label: 'Más'),
+          ],
+        ),
+      );
+    }
 
     if (rol == AppRoles.entrenador) {
       return Scaffold(
@@ -230,7 +252,7 @@ class _RoleMainShellState extends State<RoleMainShell> {
         return const [
           _NavItem(Icons.dashboard_outlined, 'Inicio'),
           _NavItem(Icons.admin_panel_settings_outlined, 'Gestión'),
-          _NavItem(Icons.assessment_outlined, 'Reportes'),
+          _NavItem(Icons.inventory_2_outlined, 'Inventario'),
           _NavItem(Icons.menu, 'Más'),
         ];
       default:
@@ -427,24 +449,26 @@ class _RoleMainShellState extends State<RoleMainShell> {
         ];
       case AppRoles.administrador:
         return [
-          _AdminInicioTab(saludo: '¡Hola, Administrador!'),
-          _PlaceholderTab(
-            titulo: 'Gestión',
-            subtitulo: 'Usuarios, equipos, permisos y configuración institucional.',
+          AdminInicioTab(
+            adminId: widget.usuarioId,
+            adminEmail: widget.usuarioEmail,
+            adminNombre: widget.nombre,
+            onIrTab: (i) => setState(() => _index = i),
           ),
-          _PlaceholderTab(
-            titulo: 'Reportes',
-            subtitulo: 'Reportes globales y exportación.',
+          AdminGestionTab(
+            adminId: widget.usuarioId,
+            adminEmail: widget.usuarioEmail,
+            adminNombre: widget.nombre,
           ),
-          _MasListaTab(
-            titulo: 'Más',
-            opciones: const [
-              'Configuración del sistema',
-              'Auditoría',
-              'Notificaciones',
-              'Perfil',
-              'Cerrar Sesión',
-            ],
+          AdminInventarioShellTab(
+            adminId: widget.usuarioId,
+            adminEmail: widget.usuarioEmail,
+            adminNombre: widget.nombre,
+          ),
+          AdminMasTab(
+            adminId: widget.usuarioId,
+            adminEmail: widget.usuarioEmail,
+            adminNombre: widget.nombre,
             onCerrarSesion: _irALogin,
           ),
         ];
@@ -1547,29 +1571,6 @@ class _StatRow extends StatelessWidget {
         children: [
           Text(label),
           Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
-        ],
-      ),
-    );
-  }
-}
-
-class _AdminInicioTab extends StatelessWidget {
-  const _AdminInicioTab({required this.saludo});
-
-  final String saludo;
-
-  @override
-  Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.all(20),
-        children: [
-          Text(saludo, style: Theme.of(context).textTheme.headlineSmall),
-          const SizedBox(height: 12),
-          const Text(
-            'Panel administrativo: usuarios, validación y reportes globales. '
-            '(No aparece detallado en el PDF; estructura alineada al resto de la app.)',
-          ),
         ],
       ),
     );

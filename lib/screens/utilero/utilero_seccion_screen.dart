@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/core/deportes_categoria.dart';
+import 'package:flutter_application_1/models/utilero_perfil.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 
@@ -89,14 +91,22 @@ class UtileroPerfilTabContent extends StatelessWidget {
     required this.usuarioId,
     required this.usuarioEmail,
     required this.nombreInicial,
+    this.deporteId,
+    this.onCambiarSeleccion,
   });
 
   final String usuarioId;
   final String usuarioEmail;
   final String nombreInicial;
+  final String? deporteId;
+  final VoidCallback? onCambiarSeleccion;
 
   @override
   Widget build(BuildContext context) {
+    final deporte = deporteId != null && deporteId!.isNotEmpty
+        ? DeportesCategoria.nombreVisible(deporteId)
+        : null;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -106,22 +116,52 @@ class UtileroPerfilTabContent extends StatelessWidget {
             bottom: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  Text(
-                    'Mi perfil',
-                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  StreamBuilder<UtileroPerfil>(
+                    stream: UtileroService.streamPerfil(usuarioId),
+                    builder: (context, snap) {
+                      final foto = snap.data?.fotoPerfil;
+                      return CircleAvatar(
+                        radius: 28,
+                        backgroundColor: Colors.white24,
+                        backgroundImage:
+                            foto != null ? NetworkImage(foto) : null,
+                        child: foto == null
+                            ? const Icon(Icons.person, color: Colors.white)
+                            : null,
+                      );
+                    },
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    nombreInicial,
-                    style: TextStyle(
-                      color: Colors.white.withValues(alpha: 0.9),
-                      fontSize: 14,
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Mi perfil',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          nombreInicial,
+                          style: TextStyle(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 14,
+                          ),
+                        ),
+                        if (deporte != null)
+                          Text(
+                            'Selección: $deporte',
+                            style: TextStyle(
+                              color: Colors.white.withValues(alpha: 0.75),
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
                   ),
                 ],
@@ -134,6 +174,8 @@ class UtileroPerfilTabContent extends StatelessWidget {
             usuarioId: usuarioId,
             usuarioEmail: usuarioEmail,
             nombreInicial: nombreInicial,
+            deporteId: deporteId,
+            onCambiarSeleccion: onCambiarSeleccion,
           ),
         ),
       ],

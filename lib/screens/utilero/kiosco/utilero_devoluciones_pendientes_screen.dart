@@ -251,6 +251,25 @@ class _PrestamoPendienteTile extends StatelessWidget {
                     color: DtflyTheme.textMuted,
                   ),
                 ),
+                if (prestamo.firmaRetiroBase64 != null &&
+                    prestamo.firmaRetiroBase64!.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Row(
+                      children: [
+                        Icon(Icons.draw, size: 12, color: DtflyTheme.success),
+                        SizedBox(width: 4),
+                        Text(
+                          'Retiro firmado',
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: DtflyTheme.success,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
             ),
           ),

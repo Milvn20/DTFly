@@ -1,0 +1,18 @@
+{
+  "folders": [
+    {
+      "name": "DTFly",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/.dart_tool": true,
+      "**/build": true,
+      "**/node_modules": true,
+      "**/.idea": true,
+      "**/web_local": true,
+      "**/.firebase": true
+    }
+  }
+}

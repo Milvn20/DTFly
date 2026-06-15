@@ -397,17 +397,17 @@ class UtileroKioscoPersonaCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: DtflyTheme.surfaceCard,
-      borderRadius: DtflyTheme.borderRadius,
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
       elevation: 2,
+      shadowColor: Colors.black26,
       child: InkWell(
-        borderRadius: DtflyTheme.borderRadius,
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            borderRadius: DtflyTheme.borderRadius,
-            border: Border.all(color: DtflyTheme.borderSubtle),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             children: [
@@ -551,11 +551,13 @@ class UtileroKioscoPasos extends StatelessWidget {
     required this.pasoActual,
     required this.totalPasos,
     required this.etiqueta,
+    this.sobreFondoRojo = false,
   });
 
   final int pasoActual;
   final int totalPasos;
   final String etiqueta;
+  final bool sobreFondoRojo;
 
   @override
   Widget build(BuildContext context) {
@@ -564,10 +566,10 @@ class UtileroKioscoPasos extends StatelessWidget {
         Text(
           etiqueta.toUpperCase(),
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.bold,
-            color: DtflyTheme.textPrimary,
+            color: sobreFondoRojo ? Colors.white : DtflyTheme.textPrimary,
             letterSpacing: 0.5,
           ),
         ),
@@ -576,12 +578,18 @@ class UtileroKioscoPasos extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: List.generate(totalPasos, (i) {
             final activo = i < pasoActual;
+            final Color barra;
+            if (sobreFondoRojo) {
+              barra = activo ? const Color(0xFFB71C1C) : Colors.white;
+            } else {
+              barra = activo ? DtflyTheme.primary : DtflyTheme.borderSubtle;
+            }
             return Container(
               width: 40,
               height: 6,
               margin: const EdgeInsets.symmetric(horizontal: 4),
               decoration: BoxDecoration(
-                color: activo ? DtflyTheme.primary : DtflyTheme.borderSubtle,
+                color: barra,
                 borderRadius: BorderRadius.circular(3),
               ),
             );
