@@ -31,6 +31,15 @@ class _UtileroAgregarMaterialScreenState
   final _cantidadCtrl = TextEditingController(text: '1');
   Uint8List? _fotoBytes;
   bool _guardando = false;
+  late String? _deporteSeleccionado;
+
+  @override
+  void initState() {
+    super.initState();
+    final inicial = widget.deporteId?.trim();
+    _deporteSeleccionado =
+        (inicial != null && inicial.isNotEmpty) ? inicial : null;
+  }
 
   @override
   void dispose() {
@@ -84,11 +93,13 @@ class _UtileroAgregarMaterialScreenState
       return;
     }
 
-    final deporteId = widget.deporteId?.trim();
-    if (deporteId == null || deporteId.isEmpty) {
-      _mensaje('Selecciona una disciplina antes de agregar material', error: true);
+    if (_deporteSeleccionado == null || _deporteSeleccionado!.isEmpty) {
+      _mensaje('Selecciona una disciplina o General', error: true);
       return;
     }
+
+    final esGeneral =
+        _deporteSeleccionado == DeportesCategoria.idGeneral;
 
     setState(() => _guardando = true);
     try {
@@ -96,7 +107,8 @@ class _UtileroAgregarMaterialScreenState
         nombre: nombre,
         cantidad: cantidad,
         imagenBytes: _fotoBytes!,
-        deporteId: deporteId,
+        deporteId: esGeneral ? null : _deporteSeleccionado,
+        compartidoGeneral: esGeneral,
       );
       if (!mounted) return;
       _mensaje('«$nombre» agregado al inventario');
@@ -137,12 +149,21 @@ class _UtileroAgregarMaterialScreenState
             ),
             const SizedBox(height: 6),
             Text(
-              widget.deporteId != null && widget.deporteId!.isNotEmpty
-                  ? 'Se guardará solo en ${DeportesCategoria.nombreVisible(widget.deporteId)}. '
-                      'Sube la foto de tu dispositivo; será el ícono del material.'
-                  : 'Sube la foto de tu dispositivo. Esa imagen será el ícono '
-                      'del material en el inventario, junto a balones, conos, etc.',
+              _deporteSeleccionado == DeportesCategoria.idGeneral
+                  ? 'Este material se verá en todas las selecciones deportivas.'
+                  : _deporteSeleccionado != null
+                      ? 'Se guardará en ${DeportesCategoria.nombreVisible(_deporteSeleccionado)}. '
+                          'Sube la foto de tu dispositivo; será el ícono del material.'
+                      : 'Elige la selección deportiva o General (todas). '
+                          'Sube la foto de tu dispositivo; será el ícono del material.',
               style: const TextStyle(color: DtflyTheme.textSecondary, height: 1.35),
+            ),
+            const SizedBox(height: 20),
+            _SelectorDisciplina(
+              seleccionado: _deporteSeleccionado,
+              onChanged: _guardando
+                  ? null
+                  : (v) => setState(() => _deporteSeleccionado = v),
             ),
             const SizedBox(height: 20),
             Center(
@@ -260,6 +281,91 @@ class _UtileroAgregarMaterialScreenState
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Selector de disciplina + opción General para nuevo material.
+class _SelectorDisciplina extends StatelessWidget {
+  const _SelectorDisciplina({
+    required this.seleccionado,
+    required this.onChanged,
+  });
+
+  final String? seleccionado;
+  final ValueChanged<String?>? onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final opciones = DeportesCategoria.opcionesInventario();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Selección / disciplina',
+          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
+        ),
+        const SizedBox(height: 4),
+        const Text(
+          'General = visible en fútbol, básquet, voleibol y todas las demás.',
+          style: TextStyle(fontSize: 12, color: DtflyTheme.textSecondary),
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final d in opciones)
+              ChoiceChip(
+                label: Text(
+                  d.id == DeportesCategoria.idGeneral
+                      ? 'General (todas)'
+                      : d.nombre,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: seleccionado == d.id ? Colors.white : null,
+                  ),
+                ),
+                avatar: Icon(
+                  d.icono,
+                  size: 18,
+                  color: seleccionado == d.id
+                      ? Colors.white
+                      : const Color(0xFFC62828),
+                ),
+                selected: seleccionado == d.id,
+                selectedColor: const Color(0xFFC62828),
+                onSelected: onChanged == null
+                    ? null
+                    : (_) => onChanged!(d.id),
+              ),
+          ],
+        ),
+        if (seleccionado == null) ...[
+          const SizedBox(height: 10),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFF3E0),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: const Color(0xFFFFB74D)),
+            ),
+            child: const Row(
+              children: [
+                Icon(Icons.info_outline, size: 18, color: Color(0xFFE65100)),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Toca una opción arriba para continuar.',
+                    style: TextStyle(fontSize: 12, color: Color(0xFFE65100)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
     );
   }
 }

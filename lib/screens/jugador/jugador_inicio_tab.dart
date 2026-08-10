@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/services/entrenamiento_service.dart';
+import 'package:flutter_application_1/services/usuario_perfil_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_coach_header.dart';
+import 'package:flutter_application_1/widgets/muro_acceso_button.dart';
 
 class JugadorInicioTab extends StatefulWidget {
   const JugadorInicioTab({
@@ -11,12 +13,14 @@ class JugadorInicioTab extends StatefulWidget {
     required this.usuarioEmail,
     required this.saludo,
     required this.nombreParaAsistencia,
+    this.onVerMuro,
   });
 
   final String usuarioId;
   final String usuarioEmail;
   final String saludo;
   final String nombreParaAsistencia;
+  final VoidCallback? onVerMuro;
 
   @override
   State<JugadorInicioTab> createState() => _JugadorInicioTabState();
@@ -60,13 +64,28 @@ class _JugadorInicioTabState extends State<JugadorInicioTab> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
-        children: [
-          _JugadorHeader(titulo: widget.saludo),
-          const SizedBox(height: 14),
-          Container(
+    return StreamBuilder(
+      stream: UsuarioPerfilService.streamUsuario(widget.usuarioId),
+      builder: (context, perfilSnap) {
+        final data = perfilSnap.data?.data();
+        final deporteId = data != null
+            ? UsuarioPerfilService.deporteIdDesde(data)
+            : null;
+
+        return SafeArea(
+          child: ListView(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
+            children: [
+              _JugadorHeader(titulo: widget.saludo),
+              const SizedBox(height: 14),
+              MuroAccesoButton(
+                deporteId: deporteId,
+                autorEmail: widget.usuarioEmail,
+                autorNombre: widget.nombreParaAsistencia,
+                onTap: widget.onVerMuro,
+              ),
+              const SizedBox(height: 14),
+              Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white.withOpacity(0.72),
@@ -184,6 +203,8 @@ class _JugadorInicioTabState extends State<JugadorInicioTab> {
           ),
         ],
       ),
+        );
+      },
     );
   }
 }

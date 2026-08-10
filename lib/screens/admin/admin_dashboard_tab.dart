@@ -13,6 +13,8 @@ class AdminDashboardTab extends StatefulWidget {
     required this.adminNombre,
     required this.onIrTab,
     required this.onIrSeccion,
+    this.onAbrirPerfil,
+    this.onAbrirMuro,
   });
 
   final String adminId;
@@ -21,6 +23,8 @@ class AdminDashboardTab extends StatefulWidget {
   /// Cambia pestaña inferior: 1=Gestión, 2=Inventario.
   final void Function(int tabIndex) onIrTab;
   final void Function(AdminSeccion seccion) onIrSeccion;
+  final VoidCallback? onAbrirPerfil;
+  final VoidCallback? onAbrirMuro;
 
   @override
   State<AdminDashboardTab> createState() => _AdminDashboardTabState();
@@ -62,6 +66,13 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (widget.onAbrirPerfil != null) ...[
+          AdminPerfilResumenCard(
+            adminId: widget.adminId,
+            onAbrirPerfil: widget.onAbrirPerfil!,
+          ),
+          const SizedBox(height: 16),
+        ],
         AdminSectionHeader(
           titulo: 'Estadísticas globales',
           subtitulo: 'Vista general del sistema deportivo universitario',
@@ -162,6 +173,11 @@ class _AdminDashboardTabState extends State<AdminDashboardTab> {
               'Inventario global',
               Icons.inventory_2,
               () => widget.onIrTab(2),
+            ),
+            _QuickBtn(
+              'Muro deportivo',
+              Icons.dashboard_customize_outlined,
+              () => widget.onAbrirMuro?.call(),
             ),
             _QuickBtn(
               'Búsqueda global',

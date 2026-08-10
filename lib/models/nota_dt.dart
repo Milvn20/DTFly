@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:flutter_application_1/core/deporte_usuario.dart';
+
 class NotaDt {
   const NotaDt({
     required this.id,
@@ -8,6 +10,7 @@ class NotaDt {
     required this.texto,
     required this.semanaInicio,
     this.creadoEn,
+    this.deporteId,
   });
 
   final String id;
@@ -16,6 +19,7 @@ class NotaDt {
   final String texto;
   final DateTime semanaInicio;
   final DateTime? creadoEn;
+  final String? deporteId;
 
   static NotaDt fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
@@ -27,6 +31,7 @@ class NotaDt {
       texto: d['texto'] as String? ?? '',
       semanaInicio: semana?.toDate() ?? DateTime.fromMillisecondsSinceEpoch(0),
       creadoEn: (d['creadoEn'] as Timestamp?)?.toDate(),
+      deporteId: DeporteUsuario.idDesde(d),
     );
   }
 }

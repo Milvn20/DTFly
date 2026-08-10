@@ -17,12 +17,14 @@ class PartidoCierreScreen extends StatefulWidget {
     required this.partido,
     required this.entrenadorEmail,
     required this.entrenadorUsuarioId,
+    this.entrenadorNombre = 'DT',
     this.categoriaDeportiva,
   });
 
   final Partido partido;
   final String entrenadorEmail;
   final String entrenadorUsuarioId;
+  final String entrenadorNombre;
   final String? categoriaDeportiva;
 
   @override
@@ -141,6 +143,8 @@ class _PartidoCierreScreenState extends State<PartidoCierreScreen> {
         partidoId: widget.partido.id,
         entrenadorEmail: widget.entrenadorEmail,
         entrenadorUsuarioId: widget.entrenadorUsuarioId,
+        entrenadorNombre: widget.entrenadorNombre,
+        categoriaDeportiva: widget.categoriaDeportiva,
         rival: widget.partido.rival,
         golesLocal: gl,
         golesRival: gr,

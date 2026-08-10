@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:flutter_application_1/core/deporte_usuario.dart';
+
 /// Estado del partido en calendario.
 abstract class PartidoEstado {
   static const programado = 'programado';
@@ -15,6 +17,7 @@ class Partido {
     required this.rival,
     required this.lugar,
     required this.notas,
+    this.deporteId,
     this.estado = PartidoEstado.programado,
     this.golesLocal,
     this.golesRival,
@@ -28,6 +31,7 @@ class Partido {
   final String rival;
   final String lugar;
   final String notas;
+  final String? deporteId;
   final String estado;
   final int? golesLocal;
   final int? golesRival;
@@ -60,6 +64,7 @@ class Partido {
       rival: d['rival'] as String? ?? '',
       lugar: d['lugar'] as String? ?? '',
       notas: d['notas'] as String? ?? '',
+      deporteId: DeporteUsuario.idDesde(d),
       estado: d['estado'] as String? ?? PartidoEstado.programado,
       golesLocal: (d['golesLocal'] as num?)?.toInt(),
       golesRival: (d['golesRival'] as num?)?.toInt(),

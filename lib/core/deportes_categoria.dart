@@ -18,6 +18,15 @@ class DeporteCategoria {
 class DeportesCategoria {
   DeportesCategoria._();
 
+  /// Material marcado así aparece en todas las selecciones deportivas.
+  static const String idGeneral = 'general';
+
+  static const DeporteCategoria opcionGeneral = DeporteCategoria(
+    id: idGeneral,
+    nombre: 'General',
+    icono: Icons.public,
+  );
+
   /// Colores del mockup de selección de entrenamiento.
   static const Color botonMaroon = DtflyTheme.primary;
   static const Color fondoSeleccion = DtflyTheme.background;
@@ -69,6 +78,19 @@ class DeportesCategoria {
   }
 
   static String nombreVisible(String? id) {
+    if (id == idGeneral) return 'General (todas las selecciones)';
     return porId(id)?.nombre ?? (id?.isNotEmpty == true ? id! : 'Sin categoría');
+  }
+
+  /// Opciones para asignar material: General + cada disciplina.
+  static List<DeporteCategoria> opcionesInventario({String? seleccionActual}) {
+    final lista = <DeporteCategoria>[opcionGeneral, ...todas];
+    if (seleccionActual == null ||
+        seleccionActual.isEmpty ||
+        seleccionActual == idGeneral) {
+      return lista;
+    }
+    if (lista.any((d) => d.id == seleccionActual)) return lista;
+    return lista;
   }
 }

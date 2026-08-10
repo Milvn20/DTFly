@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:flutter_application_1/models/admin_busqueda.dart';
+import 'package:flutter_application_1/services/admin_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 
 const adminSidebarColor = Color(0xFF2B2D42);
@@ -90,6 +91,95 @@ class AdminWelcomeBanner extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// Tarjeta resumen del perfil admin (dashboard / inicio).
+class AdminPerfilResumenCard extends StatelessWidget {
+  const AdminPerfilResumenCard({
+    super.key,
+    required this.adminId,
+    required this.onAbrirPerfil,
+  });
+
+  final String adminId;
+  final VoidCallback onAbrirPerfil;
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder(
+      stream: AdminService.streamPerfilAdmin(adminId),
+      builder: (context, snap) {
+        final p = snap.data;
+        if (p == null) {
+          return const SizedBox(
+            height: 72,
+            child: Center(child: CircularProgressIndicator(color: adminAccent)),
+          );
+        }
+        return Material(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          child: InkWell(
+            onTap: onAbrirPerfil,
+            borderRadius: BorderRadius.circular(14),
+            child: Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: DtflyTheme.borderSubtle),
+                boxShadow: DtflyTheme.cardShadow,
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 28,
+                    backgroundColor: adminAccent.withValues(alpha: 0.12),
+                    backgroundImage:
+                        p.fotoPerfil != null ? NetworkImage(p.fotoPerfil!) : null,
+                    child: p.fotoPerfil == null
+                        ? Text(
+                            p.nombreCompleto.isNotEmpty
+                                ? p.nombreCompleto[0].toUpperCase()
+                                : 'A',
+                            style: const TextStyle(
+                              color: adminAccent,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 22,
+                            ),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          p.nombreCompleto,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                          ),
+                        ),
+                        Text(
+                          p.cargo,
+                          style: const TextStyle(
+                            color: DtflyTheme.textSecondary,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.chevron_right, color: DtflyTheme.textSecondary),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }

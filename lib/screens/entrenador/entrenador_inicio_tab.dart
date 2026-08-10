@@ -8,16 +8,19 @@ import 'package:flutter_application_1/screens/jugador/jugador_detalle_screen.dar
 import 'package:flutter_application_1/services/entrenamiento_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_coach_header.dart';
+import 'package:flutter_application_1/widgets/muro_acceso_button.dart';
 
 /// Inicio del DT: sesión en curso con código en vivo y cuenta regresiva.
 class EntrenadorInicioTab extends StatelessWidget {
   const EntrenadorInicioTab({
     super.key,
     required this.entrenadorEmail,
+    required this.entrenadorNombre,
     this.categoriaDeportiva,
   });
 
   final String entrenadorEmail;
+  final String entrenadorNombre;
   final String? categoriaDeportiva;
 
   String _fmtHora(DateTime d) =>
@@ -51,6 +54,13 @@ class EntrenadorInicioTab extends StatelessWidget {
               return ListView(
                 padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
                 children: [
+                  MuroAccesoButton(
+                    deporteId: categoriaDeportiva,
+                    autorEmail: entrenadorEmail,
+                    autorNombre: entrenadorNombre,
+                    soloLectura: false,
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
                     'Entrenamiento en curso',
                     style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16),

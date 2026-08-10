@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter_application_1/core/deporte_usuario.dart';
+import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/core/utilero_imagen_comprimir.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
@@ -45,7 +46,9 @@ class InventarioService {
 
   static bool perteneceADeporte(MaterialInventario m, String? deporteId) {
     if (deporteId == null || deporteId.isEmpty) return true;
-    if (UtileroMaterialCat.materialEsCompartido(m)) return true;
+    if (m.compartidoGeneral || UtileroMaterialCat.materialEsCompartido(m)) {
+      return true;
+    }
     final d = m.deporteId;
     if (d == null || d.isEmpty) return false;
     return d == deporteId;
@@ -116,6 +119,7 @@ class InventarioService {
     String? imagenUrl,
     Uint8List? imagenBytes,
     String? deporteId,
+    bool compartidoGeneral = false,
   }) async {
     String? imagenBase64;
     if (imagenBytes != null && imagenBytes.isNotEmpty) {
@@ -132,7 +136,12 @@ class InventarioService {
       if (imagenUrl != null && imagenUrl!.isNotEmpty) 'imagenUrl': imagenUrl,
       if (imagenBase64 != null && imagenBase64.isNotEmpty)
         'imagenBase64': imagenBase64,
-      ..._camposDeporte(deporteId),
+      if (compartidoGeneral) ...{
+        'compartido_todas_selecciones': true,
+        'deporte': DeportesCategoria.idGeneral,
+        'deporte_nombre': 'General',
+      } else
+        ..._camposDeporte(deporteId),
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
     return ref.id;
@@ -143,7 +152,8 @@ class InventarioService {
     required String nombre,
     required int cantidad,
     required Uint8List imagenBytes,
-    required String deporteId,
+    String? deporteId,
+    bool compartidoGeneral = false,
   }) async {
     final limpio = nombre.trim();
     if (limpio.isEmpty) {
@@ -157,6 +167,11 @@ class InventarioService {
     }
     final imagenBase64 = base64Encode(imagenBytes);
 
+    if (!compartidoGeneral &&
+        (deporteId == null || deporteId.isEmpty)) {
+      throw StateError('Selecciona una disciplina o General');
+    }
+
     final ref = await _db.collection(_colMateriales).add({
       'nombre': limpio,
       'categoria': 'General',
@@ -166,7 +181,12 @@ class InventarioService {
       'unidad': 'unidad',
       'imagenBase64': imagenBase64,
       'esPersonalizado': true,
-      ..._camposDeporte(deporteId),
+      if (compartidoGeneral) ...{
+        'compartido_todas_selecciones': true,
+        'deporte': DeportesCategoria.idGeneral,
+        'deporte_nombre': 'General',
+      } else
+        ..._camposDeporte(deporteId),
       'actualizadoEn': FieldValue.serverTimestamp(),
     });
 

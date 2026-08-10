@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'package:flutter_application_1/core/deporte_usuario.dart';
+import 'package:flutter_application_1/core/deportes_categoria.dart';
 
 /// Estados de stock según módulo de inventario DTFly.
 abstract class EstadoStockMaterial {
@@ -25,6 +26,7 @@ class MaterialInventario {
     this.esPersonalizado = false,
     this.deporteId,
     this.deporteNombre,
+    this.compartidoGeneral = false,
     this.ubicacion,
     this.pasillo,
     this.estante,
@@ -43,6 +45,8 @@ class MaterialInventario {
   final bool esPersonalizado;
   final String? deporteId;
   final String? deporteNombre;
+  /// Visible en todas las selecciones (vallas, escaleras, material «General», etc.).
+  final bool compartidoGeneral;
   final String? ubicacion;
   final String? pasillo;
   final String? estante;
@@ -101,6 +105,8 @@ class MaterialInventario {
       esPersonalizado: d['esPersonalizado'] as bool? ?? false,
       deporteId: DeporteUsuario.idDesde(d),
       deporteNombre: DeporteUsuario.nombreDesde(d),
+      compartidoGeneral: d['compartido_todas_selecciones'] as bool? ??
+          d['deporte'] == DeportesCategoria.idGeneral,
       ubicacion: d['ubicacion'] as String?,
       pasillo: d['pasillo'] as String?,
       estante: d['estante'] as String?,

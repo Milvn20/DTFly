@@ -7,6 +7,7 @@ import 'package:flutter_application_1/screens/registro_screen.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_seleccion_categoria_screen.dart';
 import 'package:flutter_application_1/screens/utilero/utilero_seleccion_deporte_screen.dart';
 import 'package:flutter_application_1/screens/role_main_shell.dart';
+import 'package:flutter_application_1/services/admin_service.dart';
 import 'package:flutter_application_1/services/plantel_service.dart';
 import 'package:flutter_application_1/services/usuario_registro_service.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
@@ -109,6 +110,12 @@ class _LoginScreenState extends State<LoginScreen> {
       }
 
       if (rol == AppRoles.administrador) {
+        await AdminService.asegurarPerfilAdmin(
+          adminId: doc.id,
+          nombre: nombre,
+          correo: emailGuardado,
+        );
+        if (!mounted) return;
         Navigator.pushAndRemoveUntil(
           context,
           MaterialPageRoute(

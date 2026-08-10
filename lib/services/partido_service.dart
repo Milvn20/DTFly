@@ -3,8 +3,10 @@ import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
+import 'package:flutter_application_1/core/deporte_usuario.dart';
 import 'package:flutter_application_1/models/observacion_jugador.dart';
 import 'package:flutter_application_1/models/partido.dart';
+import 'package:flutter_application_1/services/blog_service.dart';
 import 'package:flutter_application_1/services/observacion_service.dart';
 
 /// Partidos / fixture (colección `partidos`, Storage `partidos/`).
@@ -15,15 +17,17 @@ class PartidoService {
   static final FirebaseStorage _storage = FirebaseStorage.instance;
   static const String _col = 'partidos';
 
-  static Future<void> crear({
+  static Future<String> crear({
     required String entrenadorEmail,
     required String entrenadorUsuarioId,
     required DateTime fechaHora,
     required String rival,
     required String lugar,
     String notas = '',
+    String? categoriaDeportiva,
+    String entrenadorNombre = 'DT',
   }) async {
-    await _db.collection(_col).add({
+    final ref = await _db.collection(_col).add({
       'entrenadorEmail': entrenadorEmail,
       'entrenadorUsuarioId': entrenadorUsuarioId,
       'fechaHora': Timestamp.fromDate(fechaHora),
@@ -34,7 +38,22 @@ class PartidoService {
       'fotosUrls': <String>[],
       'observacionFinal': '',
       'creadoEn': FieldValue.serverTimestamp(),
+      if (categoriaDeportiva != null && categoriaDeportiva.isNotEmpty)
+        ...DeporteUsuario.camposAlGuardar(categoriaDeportiva),
     });
+
+    await BlogService.sincronizarPartidoProgramado(
+      partidoId: ref.id,
+      entrenadorEmail: entrenadorEmail,
+      entrenadorNombre: entrenadorNombre,
+      deporteId: categoriaDeportiva,
+      fechaHora: fechaHora,
+      rival: rival,
+      lugar: lugar,
+      notas: notas,
+    );
+
+    return ref.id;
   }
 
   static Future<void> actualizar({
@@ -43,6 +62,9 @@ class PartidoService {
     String? rival,
     String? lugar,
     String? notas,
+    String? entrenadorEmail,
+    String? entrenadorNombre,
+    String? categoriaDeportiva,
   }) async {
     final data = <String, dynamic>{};
     if (fechaHora != null) {
@@ -53,6 +75,21 @@ class PartidoService {
     if (notas != null) data['notas'] = notas;
     if (data.isEmpty) return;
     await _db.collection(_col).doc(id).update(data);
+
+    final doc = await _db.collection(_col).doc(id).get();
+    final d = doc.data();
+    if (d == null) return;
+    final p = Partido.fromDoc(doc);
+    await BlogService.sincronizarPartidoProgramado(
+      partidoId: id,
+      entrenadorEmail: entrenadorEmail ?? p.entrenadorEmail,
+      entrenadorNombre: entrenadorNombre ?? 'DT',
+      deporteId: categoriaDeportiva ?? p.deporteId,
+      fechaHora: p.fechaHora,
+      rival: p.rival,
+      lugar: p.lugar,
+      notas: p.notas,
+    );
   }
 
   static Future<String> subirFoto(
@@ -93,6 +130,8 @@ class PartidoService {
     List<Uint8List> fotosNuevas = const [],
     List<String> nombresFotosNuevas = const [],
     List<ObservacionPartidoJugador> observacionesJugadores = const [],
+    String entrenadorNombre = 'DT',
+    String? categoriaDeportiva,
   }) async {
     final nuevasUrls = fotosNuevas.isEmpty
         ? <String>[]
@@ -112,6 +151,22 @@ class PartidoService {
       'fotosUrls': todasFotos,
       'cerradoEn': FieldValue.serverTimestamp(),
     });
+
+    final doc = await _db.collection(_col).doc(partidoId).get();
+    final deporteId =
+        categoriaDeportiva ?? Partido.fromDoc(doc).deporteId;
+
+    await BlogService.sincronizarResultadoPartido(
+      partidoId: partidoId,
+      entrenadorEmail: entrenadorEmail,
+      entrenadorNombre: entrenadorNombre,
+      deporteId: deporteId,
+      rival: rival,
+      golesLocal: golesLocal,
+      golesRival: golesRival,
+      observacionFinal: observacionFinal,
+      fotosUrls: todasFotos,
+    );
 
     final refTitulo = 'Partido vs $rival';
     for (final obs in observacionesJugadores) {
@@ -134,15 +189,31 @@ class PartidoService {
     required String id,
     required int golesLocal,
     required int golesRival,
+    String entrenadorEmail = '',
+    String entrenadorNombre = 'DT',
+    String? categoriaDeportiva,
   }) async {
     await _db.collection(_col).doc(id).update({
       'estado': PartidoEstado.jugado,
       'golesLocal': golesLocal,
       'golesRival': golesRival,
     });
+
+    final doc = await _db.collection(_col).doc(id).get();
+    final p = Partido.fromDoc(doc);
+    await BlogService.sincronizarResultadoPartido(
+      partidoId: id,
+      entrenadorEmail: entrenadorEmail.isNotEmpty ? entrenadorEmail : p.entrenadorEmail,
+      entrenadorNombre: entrenadorNombre,
+      deporteId: categoriaDeportiva ?? p.deporteId,
+      rival: p.rival,
+      golesLocal: golesLocal,
+      golesRival: golesRival,
+    );
   }
 
   static Future<void> eliminar(String id) async {
+    await BlogService.eliminarPorPartido(id);
     await _db.collection(_col).doc(id).delete();
   }
 
@@ -192,6 +263,19 @@ class PartidoService {
 
   static Stream<List<Partido>> streamProximosGlobales() {
     return _streamFiltrado(_db.collection(_col).snapshots(), _proximosDe);
+  }
+
+  static Stream<List<Partido>> streamProximosSeleccion(String? deporteId) {
+    return streamProximosGlobales().map(
+      (list) => list
+          .where((p) =>
+              deporteId == null ||
+              deporteId.isEmpty ||
+              p.deporteId == null ||
+              p.deporteId!.isEmpty ||
+              p.deporteId == deporteId)
+          .toList(),
+    );
   }
 
   static Stream<List<Partido>> streamResultados(String entrenadorEmail) {

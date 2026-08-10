@@ -14,11 +14,13 @@ class EntrenadorPlantelTab extends StatelessWidget {
     super.key,
     required this.entrenadorEmail,
     required this.entrenadorUsuarioId,
+    required this.entrenadorNombre,
     this.categoriaDeportiva,
   });
 
   final String entrenadorEmail;
   final String entrenadorUsuarioId;
+  final String entrenadorNombre;
   final String? categoriaDeportiva;
 
   String _fmt(Partido p) =>
@@ -65,6 +67,8 @@ class EntrenadorPlantelTab extends StatelessWidget {
       await NotaDtService.crearNotaSemanal(
         entrenadorEmail: entrenadorEmail,
         entrenadorUsuarioId: entrenadorUsuarioId,
+        entrenadorNombre: entrenadorNombre,
+        categoriaDeportiva: categoriaDeportiva,
         texto: texto,
       );
       if (context.mounted) {
@@ -370,6 +374,8 @@ class EntrenadorPlantelTab extends StatelessWidget {
                           builder: (_) => PartidosGestionScreen(
                             entrenadorEmail: entrenadorEmail,
                             entrenadorUsuarioId: entrenadorUsuarioId,
+                            entrenadorNombre: entrenadorNombre,
+                            categoriaDeportiva: categoriaDeportiva,
                           ),
                         ),
                       );

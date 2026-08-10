@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import 'package:flutter_application_1/screens/admin/admin_perfil_screen.dart';
 import 'package:flutter_application_1/screens/admin/admin_dashboard_tab.dart';
 import 'package:flutter_application_1/screens/admin/admin_navigation.dart';
 import 'package:flutter_application_1/screens/admin/admin_tab_shell.dart';
+import 'package:flutter_application_1/screens/muro/muro_deportivo_screen.dart';
 
 /// Pestaña Inicio del administrador (dashboard).
 class AdminInicioTab extends StatelessWidget {
@@ -34,6 +36,27 @@ class AdminInicioTab extends StatelessWidget {
           seccion: s,
           adminId: adminId,
           adminEmail: adminEmail,
+        ),
+        onAbrirPerfil: () => Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => AdminPerfilScreen(
+              adminId: adminId,
+              adminEmail: adminEmail,
+              adminNombre: adminNombre,
+            ),
+          ),
+        ),
+        onAbrirMuro: () => Navigator.push<void>(
+          context,
+          MaterialPageRoute(
+            builder: (_) => MuroDeportivoScreen(
+              soloLectura: false,
+              autorEmail: adminEmail,
+              autorNombre: adminNombre,
+              permitirCambiarSeleccion: true,
+            ),
+          ),
         ),
       ),
     );

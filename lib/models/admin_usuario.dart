@@ -16,6 +16,10 @@ class AdminUsuario {
     this.fechaCreacion,
     this.telefono,
     this.carrera,
+    this.edad,
+    this.posicionDeportiva,
+    this.tipoBeca,
+    this.institucion,
   });
 
   final String id;
@@ -28,12 +32,24 @@ class AdminUsuario {
   final DateTime? fechaCreacion;
   final String? telefono;
   final String? carrera;
+  final int? edad;
+  final String? posicionDeportiva;
+  final String? tipoBeca;
+  final String? institucion;
 
   String get rolNormalizado => AppRoles.normalize(rol);
+
+  String get iniciales {
+    final partes = nombre.trim().split(RegExp(r'\s+'));
+    if (partes.isEmpty || partes.first.isEmpty) return '?';
+    if (partes.length == 1) return partes.first[0].toUpperCase();
+    return '${partes.first[0]}${partes.last[0]}'.toUpperCase();
+  }
 
   static AdminUsuario fromDoc(DocumentSnapshot<Map<String, dynamic>> doc) {
     final d = doc.data() ?? {};
     final activoRaw = d['activo'];
+    final edadRaw = d['edad'];
     return AdminUsuario(
       id: doc.id,
       nombre: d['nombre'] as String? ?? '',
@@ -45,6 +61,10 @@ class AdminUsuario {
       fechaCreacion: (d['fecha_creacion'] as Timestamp?)?.toDate(),
       telefono: d['telefono'] as String?,
       carrera: d['carrera'] as String?,
+      edad: edadRaw is int ? edadRaw : int.tryParse('$edadRaw'),
+      posicionDeportiva: d['posicionDeportiva'] as String?,
+      tipoBeca: d['tipoBeca'] as String?,
+      institucion: d['institucion'] as String?,
     );
   }
 }

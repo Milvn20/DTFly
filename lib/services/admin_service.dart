@@ -1,4 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:flutter_application_1/core/app_roles.dart';
 import 'package:flutter_application_1/core/deporte_usuario.dart';
@@ -6,6 +8,7 @@ import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/models/admin_auditoria.dart';
 import 'package:flutter_application_1/models/admin_busqueda.dart';
+import 'package:flutter_application_1/models/admin_perfil.dart';
 import 'package:flutter_application_1/models/admin_usuario.dart';
 import 'package:flutter_application_1/models/asistencia_registro.dart';
 import 'package:flutter_application_1/models/entrenamiento.dart';
@@ -135,6 +138,194 @@ class AdminService {
   static const String _colConfig = 'configuracion_sistema';
   static const String _colReportes = 'reportes_entrenador';
   static const String _colSolicitudes = 'solicitudes_compra_utilero';
+  static const String _colPerfilAdmin = 'admin_perfiles';
+
+  static DocumentReference<Map<String, dynamic>> refPerfilAdmin(String adminId) =>
+      _db.collection(_colPerfilAdmin).doc(adminId);
+
+  // ─── Perfil administrador ───────────────────────────────────
+
+  static Future<void> asegurarPerfilAdmin({
+    required String adminId,
+    required String nombre,
+    required String correo,
+  }) async {
+    final ref = refPerfilAdmin(adminId);
+    final snap = await ref.get();
+    if (snap.exists) {
+      await ref.set(
+        {'ultimo_acceso': FieldValue.serverTimestamp()},
+        SetOptions(merge: true),
+      );
+      return;
+    }
+    final partes = nombre.trim().split(RegExp(r'\s+'));
+    await ref.set({
+      'nombre': partes.isNotEmpty ? partes.first : nombre,
+      'apellido': partes.length > 1 ? partes.sublist(1).join(' ') : '',
+      'correo': correo.trim().toLowerCase(),
+      'telefono': '',
+      'cargo': 'Administrador DTFly',
+      'notif_email': true,
+      'notif_sistema': true,
+      'fecha_ingreso': FieldValue.serverTimestamp(),
+      'ultimo_acceso': FieldValue.serverTimestamp(),
+      'updated_at': FieldValue.serverTimestamp(),
+    });
+    await registrarAuditoria(
+      adminId: adminId,
+      adminEmail: correo,
+      accion: 'Inicio de sesión',
+      detalle: 'Acceso al panel administrativo',
+    );
+  }
+
+  static Stream<AdminPerfil> streamPerfilAdmin(String adminId) {
+    return refPerfilAdmin(adminId).snapshots().asyncMap((perfilSnap) async {
+      final usuarioSnap = await _db.collection(_colUsuarios).doc(adminId).get();
+      return AdminPerfil.fromDocs(
+        adminId: adminId,
+        perfilData: perfilSnap.data(),
+        usuarioData: usuarioSnap.data(),
+      );
+    });
+  }
+
+  static Future<void> guardarPerfilAdmin({
+    required String adminId,
+    required String adminEmail,
+    required String nombre,
+    required String apellido,
+    required String telefono,
+    String? cargo,
+    String? institucion,
+  }) async {
+    final nombreCompleto = '$nombre $apellido'.trim();
+    await refPerfilAdmin(adminId).set(
+      {
+        'nombre': nombre.trim(),
+        'apellido': apellido.trim(),
+        'telefono': telefono.trim(),
+        if (cargo != null) 'cargo': cargo.trim(),
+        if (institucion != null) 'institucion': institucion.trim(),
+        'updated_at': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    await _db.collection(_colUsuarios).doc(adminId).set(
+      {
+        'nombre': nombreCompleto,
+        'telefono': telefono.trim(),
+        if (institucion != null) 'institucion': institucion.trim(),
+        'perfil_actualizado_en': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    await registrarAuditoria(
+      adminId: adminId,
+      adminEmail: adminEmail,
+      accion: 'Actualizar perfil',
+      detalle: 'Datos personales del administrador',
+      entidadTipo: 'admin_perfil',
+      entidadId: adminId,
+    );
+  }
+
+  static Future<String?> subirFotoPerfilAdmin({
+    required String adminId,
+    required String adminEmail,
+    required Uint8List bytes,
+  }) async {
+    final storageRef = FirebaseStorage.instance
+        .ref()
+        .child('admin_perfiles/$adminId/foto_perfil.jpg');
+    await storageRef.putData(
+      bytes,
+      SettableMetadata(contentType: 'image/jpeg'),
+    );
+    final url = await storageRef.getDownloadURL();
+    await refPerfilAdmin(adminId).set(
+      {
+        'foto_perfil': url,
+        'updated_at': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    await registrarAuditoria(
+      adminId: adminId,
+      adminEmail: adminEmail,
+      accion: 'Cambiar foto de perfil',
+      detalle: adminId,
+      entidadTipo: 'admin_perfil',
+      entidadId: adminId,
+    );
+    return url;
+  }
+
+  static Future<void> guardarPreferenciasAdmin({
+    required String adminId,
+    required String adminEmail,
+    required bool notifEmail,
+    required bool notifSistema,
+  }) async {
+    await refPerfilAdmin(adminId).set(
+      {
+        'notif_email': notifEmail,
+        'notif_sistema': notifSistema,
+        'updated_at': FieldValue.serverTimestamp(),
+      },
+      SetOptions(merge: true),
+    );
+    await registrarAuditoria(
+      adminId: adminId,
+      adminEmail: adminEmail,
+      accion: 'Actualizar preferencias',
+      detalle: 'Notificaciones del administrador',
+    );
+  }
+
+  static Future<void> cambiarContrasenaAdmin({
+    required String adminId,
+    required String adminEmail,
+    required String actual,
+    required String nueva,
+  }) async {
+    final snap = await _db.collection(_colUsuarios).doc(adminId).get();
+    if (!snap.exists) throw StateError('Usuario no encontrado');
+    final guardada = snap.data()?['password'] as String? ?? '';
+    if (guardada != actual) {
+      throw StateError('La contraseña actual no es correcta');
+    }
+    if (nueva.length < 4) {
+      throw StateError('La nueva contraseña debe tener al menos 4 caracteres');
+    }
+    await _db.collection(_colUsuarios).doc(adminId).update({'password': nueva});
+    await registrarAuditoria(
+      adminId: adminId,
+      adminEmail: adminEmail,
+      accion: 'Cambiar contraseña',
+      detalle: 'Actualización de seguridad',
+    );
+  }
+
+  static Stream<List<AdminAuditoriaRegistro>> streamAuditoriaAdmin({
+    required String adminId,
+    int limit = 25,
+  }) {
+    return _db
+        .collection(_colAuditoria)
+        .where('admin_id', isEqualTo: adminId)
+        .limit(limit)
+        .snapshots()
+        .map((s) {
+      final list = s.docs.map(AdminAuditoriaRegistro.fromDoc).toList();
+      list.sort(
+        (a, b) => (b.creadoEn ?? DateTime(2000))
+            .compareTo(a.creadoEn ?? DateTime(2000)),
+      );
+      return list;
+    });
+  }
 
   // ─── Usuarios ───────────────────────────────────────────────
 
@@ -179,12 +370,21 @@ class AdminService {
     return AdminUsuario.fromDoc(snap);
   }
 
+  static Stream<AdminUsuario?> streamUsuario(String id) {
+    return _db.collection(_colUsuarios).doc(id).snapshots().map((snap) {
+      if (!snap.exists) return null;
+      return AdminUsuario.fromDoc(snap);
+    });
+  }
+
   static Future<void> actualizarUsuario({
     required String usuarioId,
     String? nombre,
     String? rol,
     bool? activo,
     String? deporteId,
+    String? telefono,
+    String? carrera,
     required String adminId,
     required String adminEmail,
   }) async {
@@ -194,6 +394,8 @@ class AdminService {
     if (nombre != null) data['nombre'] = nombre.trim();
     if (rol != null) data['rol'] = rol;
     if (activo != null) data['activo'] = activo;
+    if (telefono != null) data['telefono'] = telefono.trim();
+    if (carrera != null) data['carrera'] = carrera.trim();
     if (deporteId != null) {
       data.addAll(DeporteUsuario.camposAlGuardar(deporteId));
     }

@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'package:flutter_application_1/core/deporte_usuario.dart';
 import 'package:flutter_application_1/models/nota_dt.dart';
+import 'package:flutter_application_1/services/blog_service.dart';
 
 class NotaDtService {
   NotaDtService._();
@@ -17,6 +19,8 @@ class NotaDtService {
     required String entrenadorEmail,
     required String entrenadorUsuarioId,
     required String texto,
+    String entrenadorNombre = 'DT',
+    String? categoriaDeportiva,
   }) async {
     final limpio = texto.trim();
     if (limpio.isEmpty) {
@@ -29,7 +33,16 @@ class NotaDtService {
       'texto': limpio,
       'semanaInicio': Timestamp.fromDate(inicioSemana(DateTime.now())),
       'creadoEn': FieldValue.serverTimestamp(),
+      if (categoriaDeportiva != null && categoriaDeportiva.isNotEmpty)
+        ...DeporteUsuario.camposAlGuardar(categoriaDeportiva),
     });
+
+    await BlogService.publicarActividadSemana(
+      entrenadorEmail: entrenadorEmail,
+      entrenadorNombre: entrenadorNombre,
+      deporteId: categoriaDeportiva,
+      texto: limpio,
+    );
   }
 
   static Stream<List<NotaDt>> streamSemanaEntrenador(String entrenadorEmail) {
@@ -42,6 +55,18 @@ class NotaDtService {
 
   static Stream<List<NotaDt>> streamSemanaActualGlobal() {
     return _db.collection(_col).snapshots().map(_filtrarSemanaActual);
+  }
+
+  static Stream<List<NotaDt>> streamSemanaSeleccion(String? deporteId) {
+    return streamSemanaActualGlobal().map((notas) {
+      if (deporteId == null || deporteId.isEmpty) return notas;
+      return notas
+          .where((n) =>
+              n.deporteId == null ||
+              n.deporteId!.isEmpty ||
+              n.deporteId == deporteId)
+          .toList();
+    });
   }
 
   static List<NotaDt> _filtrarSemanaActual(

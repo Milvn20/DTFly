@@ -5,14 +5,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter_application_1/core/app_roles.dart';
 import 'package:flutter_application_1/core/deportes_categoria.dart';
 import 'package:flutter_application_1/models/entrenamiento.dart';
-import 'package:flutter_application_1/models/nota_dt.dart';
-import 'package:flutter_application_1/models/partido.dart';
-import 'package:flutter_application_1/models/blog_publicacion.dart';
 import 'package:flutter_application_1/screens/admin/admin_gestion_tab.dart';
 import 'package:flutter_application_1/screens/admin/admin_inicio_tab.dart';
 import 'package:flutter_application_1/screens/admin/admin_inventario_shell_tab.dart';
 import 'package:flutter_application_1/screens/admin/admin_mas_tab.dart';
-import 'package:flutter_application_1/screens/blog/blog_list_screen.dart';
+import 'package:flutter_application_1/screens/muro/muro_deportivo_screen.dart';
+import 'package:flutter_application_1/services/usuario_perfil_service.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_estadisticas_screen.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_historial_screen.dart';
 import 'package:flutter_application_1/screens/entrenador/entrenador_seleccion_categoria_screen.dart';
@@ -33,12 +31,8 @@ import 'package:flutter_application_1/screens/jugador/jugador_inicio_tab.dart';
 import 'package:flutter_application_1/screens/jugadores_screen.dart';
 import 'package:flutter_application_1/screens/observaciones/observaciones_entrenador_screen.dart';
 import 'package:flutter_application_1/screens/observaciones/observaciones_jugador_screen.dart';
-import 'package:flutter_application_1/screens/partidos/partido_detalle_screen.dart';
 import 'package:flutter_application_1/screens/partidos/partidos_gestion_screen.dart';
-import 'package:flutter_application_1/services/blog_service.dart';
 import 'package:flutter_application_1/services/entrenamiento_service.dart';
-import 'package:flutter_application_1/services/nota_dt_service.dart';
-import 'package:flutter_application_1/services/partido_service.dart';
 import 'package:flutter_application_1/services/reportes_service.dart';
 import 'package:flutter_application_1/theme/dtfly_theme.dart';
 import 'package:flutter_application_1/widgets/dtfly_bottom_nav.dart';
@@ -238,7 +232,7 @@ class _RoleMainShellState extends State<RoleMainShell> {
         return const [
           _NavItem(Icons.home_outlined, 'Inicio'),
           _NavItem(Icons.trending_up_outlined, 'Mi Progreso'),
-          _NavItem(Icons.campaign_outlined, 'Novedades'),
+          _NavItem(Icons.dashboard_customize_outlined, 'Muro'),
           _NavItem(Icons.menu, 'Más'),
         ];
       case AppRoles.utilero:
@@ -269,6 +263,7 @@ class _RoleMainShellState extends State<RoleMainShell> {
         return [
           EntrenadorInicioTab(
             entrenadorEmail: widget.usuarioEmail,
+            entrenadorNombre: widget.nombre,
             categoriaDeportiva: widget.categoriaDeportiva,
           ),
           EntrenadorPlanificacionTab(
@@ -279,6 +274,7 @@ class _RoleMainShellState extends State<RoleMainShell> {
           EntrenadorPlantelTab(
             entrenadorEmail: widget.usuarioEmail,
             entrenadorUsuarioId: widget.usuarioId,
+            entrenadorNombre: widget.nombre,
             categoriaDeportiva: widget.categoriaDeportiva,
           ),
           _EntrenadorMasMenuTab(
@@ -296,25 +292,15 @@ class _RoleMainShellState extends State<RoleMainShell> {
             usuarioEmail: widget.usuarioEmail,
             saludo: '¡Hola, $_primerNombre!',
             nombreParaAsistencia: widget.nombre,
+            onVerMuro: () => setState(() => _index = 2),
           ),
           _JugadorProgresoTab(
             saludo: '¡Hola, $_primerNombre!',
             usuarioId: widget.usuarioId,
           ),
-          _JugadorNovedadesTab(
+          _JugadorMuroTab(
             saludo: '¡Hola, $_primerNombre!',
-            onVerBlog: () {
-              Navigator.push<void>(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => const BlogListScreen(
-                    soloLectura: true,
-                    autorEmail: '',
-                    autorNombre: '',
-                  ),
-                ),
-              );
-            },
+            usuarioId: widget.usuarioId,
           ),
           _MasListaTab(
             titulo: 'Más',
@@ -345,16 +331,7 @@ class _RoleMainShellState extends State<RoleMainShell> {
                   ),
                 );
               } else if (op == 'Comunicaciones') {
-                Navigator.push<void>(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const BlogListScreen(
-                      soloLectura: true,
-                      autorEmail: '',
-                      autorNombre: '',
-                    ),
-                  ),
-                );
+                setState(() => _index = 2);
               } else if (op == 'Historial') {
                 Navigator.push<void>(
                   context,
@@ -506,7 +483,7 @@ class _EntrenadorMasMenuTab extends StatelessWidget {
 
   static const List<_CoachMenuRow> _rows = [
     _CoachMenuRow('Cambiar deporte', Icons.sports),
-    _CoachMenuRow('Blog y noticias', Icons.article_outlined),
+    _CoachMenuRow('Muro deportivo', Icons.dashboard_customize_outlined),
     _CoachMenuRow('Gestión de partidos', Icons.sports_soccer),
     _CoachMenuRow('Observaciones', Icons.rate_review_outlined),
     _CoachMenuRow('Inventario deportivo', Icons.inventory_2_outlined),
@@ -569,14 +546,15 @@ class _EntrenadorMasMenuTab extends StatelessWidget {
       onCerrarSesion();
       return;
     }
-    if (label == 'Blog y noticias') {
+    if (label == 'Muro deportivo') {
       await Navigator.push<void>(
         context,
         MaterialPageRoute(
-          builder: (_) => BlogListScreen(
+          builder: (_) => MuroDeportivoScreen(
             soloLectura: false,
             autorEmail: entrenadorEmail,
             autorNombre: entrenadorNombre,
+            deporteId: categoriaDeportiva,
           ),
         ),
       );
@@ -589,6 +567,7 @@ class _EntrenadorMasMenuTab extends StatelessWidget {
           builder: (_) => PartidosGestionScreen(
             entrenadorEmail: entrenadorEmail,
             entrenadorUsuarioId: entrenadorUsuarioId,
+            entrenadorNombre: entrenadorNombre,
             categoriaDeportiva: categoriaDeportiva,
           ),
         ),
@@ -739,378 +718,35 @@ class _PlaceholderTab extends StatelessWidget {
   }
 }
 
-class _JugadorNovedadesTab extends StatelessWidget {
-  const _JugadorNovedadesTab({
+class _JugadorMuroTab extends StatelessWidget {
+  const _JugadorMuroTab({
     required this.saludo,
-    required this.onVerBlog,
+    required this.usuarioId,
   });
 
   final String saludo;
-  final VoidCallback onVerBlog;
-
-  static String _fmtPartido(Partido p) {
-    return '${p.fechaHora.day.toString().padLeft(2, '0')}/'
-        '${p.fechaHora.month.toString().padLeft(2, '0')} '
-        '${p.fechaHora.hour.toString().padLeft(2, '0')}:'
-        '${p.fechaHora.minute.toString().padLeft(2, '0')}';
-  }
+  final String usuarioId;
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 18),
-        children: [
-          _StudentHeader(titulo: saludo),
-          const SizedBox(height: 12),
-          StreamBuilder<List<BlogPublicacion>>(
-            stream: BlogService.streamPublicaciones(),
-            builder: (context, blogSnap) {
-              final posts = blogSnap.data ?? [];
-              final avisos = posts.where((p) => p.esAvisoImportante).take(2);
-              final noticias = posts.where((p) => !p.esAvisoImportante).take(2);
+    return StreamBuilder(
+      stream: UsuarioPerfilService.streamUsuario(usuarioId),
+      builder: (context, snap) {
+        final data = snap.data?.data();
+        final deporteId =
+            data != null ? UsuarioPerfilService.deporteIdDesde(data) : null;
+        final nombre = data?['nombre'] as String? ?? saludo;
 
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (avisos.isNotEmpty)
-                    _StudentPanel(
-                      title: 'Avisos importantes',
-                      child: Column(
-                        children: [
-                          for (final p in avisos)
-                            _NovedadBlogCard(titulo: p.titulo, extracto: p.contenido),
-                        ],
-                      ),
-                    ),
-                  if (avisos.isNotEmpty) const SizedBox(height: 10),
-                  _StudentPanel(
-                    title: 'Noticias',
-                    child: Column(
-                      children: [
-                        if (noticias.isEmpty && avisos.isEmpty)
-                          const Text('Sin publicaciones del equipo.')
-                        else
-                          for (final p in noticias)
-                            _NovedadBlogCard(titulo: p.titulo, extracto: p.contenido),
-                        const SizedBox(height: 8),
-                        TextButton(
-                          onPressed: onVerBlog,
-                          style: TextButton.styleFrom(
-                            foregroundColor: DtflyTheme.primary,
-                          ),
-                          child: const Text('Ver todas las noticias'),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                ],
-              );
-            },
-          ),
-          StreamBuilder<List<Partido>>(
-            stream: PartidoService.streamProximosGlobales(),
-            builder: (context, snap) {
-              final partidos = snap.data ?? [];
-
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _StudentPanel(
-                    title: 'Próximos partidos',
-                    child: Column(
-                      children: [
-                        if (snap.hasError)
-                          Text('No se pudieron cargar partidos: ${snap.error}')
-                        else if (partidos.isEmpty)
-                          const Text('Aún no hay partidos asignados por el DT.')
-                        else
-                          for (final p in partidos.take(4))
-                            _NovedadPartidoCard(
-                              fecha: _fmtPartido(p),
-                              rival: p.rival,
-                              lugar: p.lugar,
-                              notas: p.notas,
-                            ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _StudentPanel(
-                    title: 'Notas del DT',
-                    child: StreamBuilder<List<NotaDt>>(
-                      stream: NotaDtService.streamSemanaActualGlobal(),
-                      builder: (context, notaSnap) {
-                        if (notaSnap.hasError) {
-                          return Text(
-                            'No se pudieron cargar las notas: ${notaSnap.error}',
-                          );
-                        }
-                        final notas = notaSnap.data ?? [];
-                        if (notas.isEmpty) {
-                          return const Text(
-                            'Cuando el DT publique lo que espera esta semana aparecerá aquí.',
-                          );
-                        }
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (final nota in notas.take(4))
-                              Container(
-                                margin: const EdgeInsets.only(bottom: 8),
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: DtflyTheme.surfaceMuted,
-                                  borderRadius: BorderRadius.circular(12),
-                                  border: Border.all(color: DtflyTheme.borderSubtle),
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const Icon(
-                                      Icons.flag_circle,
-                                      color: DtflyTheme.primary,
-                                      size: 22,
-                                    ),
-                                    const SizedBox(width: 8),
-                                    Expanded(child: Text(nota.texto)),
-                                  ],
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  _StudentPanel(
-                    title: 'Resultados recientes',
-                    child: StreamBuilder<List<Partido>>(
-                      stream: PartidoService.streamResultadosGlobales(),
-                      builder: (context, resSnap) {
-                        final res = resSnap.data ?? [];
-                        if (res.isEmpty) {
-                          return const Text('Aún no hay resultados publicados.');
-                        }
-                        return Column(
-                          children: [
-                            for (final p in res.take(4))
-                              InkWell(
-                                onTap: () {
-                                  Navigator.push<void>(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) =>
-                                          PartidoDetalleScreen(partido: p),
-                                    ),
-                                  );
-                                },
-                                borderRadius: BorderRadius.circular(10),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Row(
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              'vs ${p.rival}',
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                            ),
-                                          ),
-                                          Text(
-                                            p.resultadoTexto ?? '-',
-                                            style: const TextStyle(
-                                              color: DtflyTheme.accentOrange,
-                                              fontWeight: FontWeight.w800,
-                                              fontSize: 16,
-                                            ),
-                                          ),
-                                          if (p.fotosUrls.isNotEmpty)
-                                            const Padding(
-                                              padding: EdgeInsets.only(left: 6),
-                                              child: Icon(
-                                                Icons.photo_library_outlined,
-                                                size: 18,
-                                                color: DtflyTheme.primary,
-                                              ),
-                                            ),
-                                        ],
-                                      ),
-                                      if (p.observacionFinal.isNotEmpty)
-                                        Padding(
-                                          padding: const EdgeInsets.only(top: 4),
-                                          child: Text(
-                                            p.observacionFinal,
-                                            maxLines: 2,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: DtflyTheme.textMuted,
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextButton(
-                    onPressed: () {
-                      Navigator.push<void>(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => const PartidosGestionScreen(
-                            entrenadorEmail: '',
-                            entrenadorUsuarioId: '',
-                            soloLectura: true,
-                          ),
-                        ),
-                      );
-                    },
-                    style: TextButton.styleFrom(
-                      foregroundColor: DtflyTheme.primary,
-                    ),
-                    child: const Text('Ver calendario completo'),
-                  ),
-                ],
-              );
-            },
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NovedadBlogCard extends StatelessWidget {
-  const _NovedadBlogCard({required this.titulo, required this.extracto});
-
-  final String titulo;
-  final String extracto;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: DtflyTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DtflyTheme.borderSubtle),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            titulo,
-            style: const TextStyle(
-              color: DtflyTheme.textPrimary,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            extracto,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              color: DtflyTheme.textSecondary,
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _NovedadPartidoCard extends StatelessWidget {
-  const _NovedadPartidoCard({
-    required this.fecha,
-    required this.rival,
-    required this.lugar,
-    required this.notas,
-  });
-
-  final String fecha;
-  final String rival;
-  final String lugar;
-  final String notas;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: DtflyTheme.surfaceMuted,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: DtflyTheme.borderSubtle),
-      ),
-      child: Row(
-        children: [
-          Container(
-            width: 58,
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            decoration: BoxDecoration(
-              color: DtflyTheme.primary,
-              borderRadius: BorderRadius.circular(14),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              fecha,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w800,
-                fontSize: 11,
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'vs $rival',
-                  style: const TextStyle(
-                    color: DtflyTheme.textPrimary,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-                Text(
-                  lugar,
-                  style: const TextStyle(
-                    color: DtflyTheme.textSecondary,
-                    fontSize: 12,
-                  ),
-                ),
-                if (notas.trim().isNotEmpty)
-                  Text(
-                    notas,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: DtflyTheme.textMuted,
-                      fontSize: 12,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
+        return SafeArea(
+          child: MuroDeportivoFeed(
+          soloLectura: true,
+          autorEmail: '',
+          autorNombre: '',
+          deporteId: deporteId,
+          nombreUsuario: nombre.replaceAll('¡Hola, ', '').replaceAll('!', ''),
+        ),
+        );
+      },
     );
   }
 }
