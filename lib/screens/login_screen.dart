@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_application_1/core/app_build_info.dart';
 import 'package:flutter_application_1/core/app_roles.dart';
 import 'package:flutter_application_1/screens/registro_screen.dart';
@@ -32,126 +32,254 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> iniciarSesion() async {
-    try {
-      final email = UsuarioRegistroService.normalizarEmail(
-        emailController.text,
+  try {
+    final email = UsuarioRegistroService.normalizarEmail(
+      emailController.text,
+    );
+    final password = passwordController.text;
+
+    if (email.isEmpty || password.isEmpty) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Ingresa tu correo y contraseña.'),
+        ),
       );
-      final resultado = await FirebaseFirestore.instance
-          .collection('usuarios')
-          .where('email', isEqualTo: email)
-          .where('password', isEqualTo: passwordController.text)
-          .get(const GetOptions(source: Source.server));
+      return;
+    }
 
-      if (resultado.docs.isEmpty) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Usuario o contraseña incorrectos')),
-        );
-        return;
-      }
+    // 1. Autenticación segura mediante Firebase Authentication.
+    final credential =
+        await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: email,
+      password: password,
+    );
 
-      final doc = resultado.docs.first;
-      final data = doc.data();
-      final nombre = data['nombre'] as String? ?? '';
-      final emailGuardado =
-          (data['email'] as String?)?.trim() ?? email;
-      final rol = AppRoles.normalize(data['rol'] as String?);
+    final firebaseUser = credential.user;
 
-      if (!AppRoles.isKnown(rol)) {
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Rol no válido: $rol')),
-        );
-        return;
-      }
+    if (firebaseUser == null) {
+      throw FirebaseAuthException(
+        code: 'user-not-found',
+        message: 'No se pudo obtener el usuario autenticado.',
+      );
+    }
+
+    // 2. El UID de Firebase es ahora la identidad del usuario.
+    final usuarioId = firebaseUser.uid;
+
+    // 3. Obtener solamente el perfil desde Firestore.
+    final doc = await FirebaseFirestore.instance
+        .collection('usuarios')
+        .doc(usuarioId)
+        .get();
+
+    if (!doc.exists) {
+      // Si existe en Authentication pero no tiene perfil,
+      // cerramos la sesión para no dejar un estado inconsistente.
+      await FirebaseAuth.instance.signOut();
+
+      throw FirebaseException(
+        plugin: 'cloud_firestore',
+        code: 'profile-not-found',
+        message: 'No existe un perfil de usuario asociado a esta cuenta.',
+      );
+    }
+
+    final data = doc.data() ?? {};
+
+    final nombre = data['nombre'] as String? ?? '';
+    final emailGuardado =
+        (data['email'] as String?)?.trim() ?? email;
+    final rol = AppRoles.normalize(data['rol'] as String?);
+
+    if (!AppRoles.isKnown(rol)) {
+      await FirebaseAuth.instance.signOut();
 
       if (!mounted) return;
 
-      if (rol == AppRoles.utilero) {
-        await UtileroService.asegurarPerfil(
-          usuarioId: doc.id,
-          nombre: nombre,
-          correo: emailGuardado,
-        );
-        await UtileroService.registrarAuditoriaSesion(
-          utileroId: doc.id,
-          esInicio: true,
-        );
-        await UtileroService.sincronizarAlertasInventario(doc.id);
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => UtileroSeleccionDeporteScreen(
-              nombre: nombre,
-              usuarioEmail: emailGuardado,
-              usuarioId: doc.id,
-            ),
-          ),
-        );
-        return;
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Rol no válido: $rol'),
+        ),
+      );
+      return;
+    }
 
-      if (rol == AppRoles.jugador) {
-        await PlantelService.asegurarCampoDeporte(doc.id);
-      }
+    if (!mounted) return;
 
-      if (rol == AppRoles.entrenador) {
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(
-            builder: (_) => EntrenadorSeleccionCategoriaScreen(
-              nombre: nombre,
-              usuarioEmail: emailGuardado,
-              usuarioId: doc.id,
-            ),
-          ),
-        );
-        return;
-      }
+    // ============================
+    // UTILERO
+    // ============================
 
-      if (rol == AppRoles.administrador) {
-        await AdminService.asegurarPerfilAdmin(
-          adminId: doc.id,
-          nombre: nombre,
-          correo: emailGuardado,
-        );
-        if (!mounted) return;
-        Navigator.pushAndRemoveUntil(
-          context,
-          MaterialPageRoute(
-            builder: (_) => RoleMainShell(
-              nombre: nombre,
-              rol: rol,
-              usuarioEmail: emailGuardado,
-              usuarioId: doc.id,
-            ),
-          ),
-          (route) => false,
-        );
-        return;
-      }
+    if (rol == AppRoles.utilero) {
+      await UtileroService.asegurarPerfil(
+        usuarioId: usuarioId,
+        nombre: nombre,
+        correo: emailGuardado,
+      );
+
+      await UtileroService.registrarAuditoriaSesion(
+        utileroId: usuarioId,
+        esInicio: true,
+      );
+
+      await UtileroService.sincronizarAlertasInventario(usuarioId);
+
+      if (!mounted) return;
 
       Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => UtileroSeleccionDeporteScreen(
+            nombre: nombre,
+            usuarioEmail: emailGuardado,
+            usuarioId: usuarioId,
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    // ============================
+    // JUGADOR
+    // ============================
+
+    if (rol == AppRoles.jugador) {
+      await PlantelService.asegurarCampoDeporte(usuarioId);
+    }
+
+    // ============================
+    // ENTRENADOR
+    // ============================
+
+    if (rol == AppRoles.entrenador) {
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => EntrenadorSeleccionCategoriaScreen(
+            nombre: nombre,
+            usuarioEmail: emailGuardado,
+            usuarioId: usuarioId,
+          ),
+        ),
+      );
+
+      return;
+    }
+
+    // ============================
+    // ADMINISTRADOR
+    // ============================
+
+    if (rol == AppRoles.administrador) {
+      await AdminService.asegurarPerfilAdmin(
+        adminId: usuarioId,
+        nombre: nombre,
+        correo: emailGuardado,
+      );
+
+      if (!mounted) return;
+
+      Navigator.pushAndRemoveUntil(
         context,
         MaterialPageRoute(
           builder: (_) => RoleMainShell(
             nombre: nombre,
             rol: rol,
             usuarioEmail: emailGuardado,
-            usuarioId: doc.id,
+            usuarioId: usuarioId,
           ),
         ),
+        (route) => false,
       );
-    } catch (e) {
-      debugPrint('Error login: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(UsuarioRegistroService.mensajeError(e)),
-        ),
-      );
+
+      return;
     }
+
+    // ============================
+    // RESTO DE ROLES
+    // ============================
+
+    Navigator.pushReplacement(
+      context,
+      MaterialPageRoute(
+        builder: (_) => RoleMainShell(
+          nombre: nombre,
+          rol: rol,
+          usuarioEmail: emailGuardado,
+          usuarioId: usuarioId,
+        ),
+      ),
+    );
+  } on FirebaseAuthException catch (e) {
+    debugPrint('Error de autenticación: ${e.code}');
+
+    if (!mounted) return;
+
+    String mensaje;
+
+    switch (e.code) {
+      case 'invalid-email':
+        mensaje = 'El correo electrónico no es válido.';
+        break;
+
+      case 'user-disabled':
+        mensaje = 'Esta cuenta está deshabilitada.';
+        break;
+
+      case 'user-not-found':
+      case 'wrong-password':
+      case 'invalid-credential':
+        mensaje = 'Correo o contraseña incorrectos.';
+        break;
+
+      case 'too-many-requests':
+        mensaje = 'Demasiados intentos. Espera unos minutos.';
+        break;
+
+      case 'network-request-failed':
+        mensaje = 'No hay conexión con el servidor.';
+        break;
+
+      default:
+        mensaje = 'No se pudo iniciar sesión.';
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(mensaje),
+      ),
+    );
+  } on FirebaseException catch (e) {
+    debugPrint('Error de Firebase: ${e.code}');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          e.code == 'profile-not-found'
+              ? 'La cuenta existe, pero su perfil de DTFly no está configurado.'
+              : 'No se pudo cargar tu perfil.',
+        ),
+      ),
+    );
+  } catch (e) {
+    debugPrint('Error login: $e');
+
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('No se pudo iniciar sesión. Inténtalo nuevamente.'),
+      ),
+    );
   }
+}
 
   void _olvideContrasena() {
     ScaffoldMessenger.of(context).showSnackBar(
