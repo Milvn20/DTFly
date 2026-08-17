@@ -62,7 +62,7 @@ class PartidoDetalleScreen extends StatelessWidget {
                     url,
                     width: double.infinity,
                     fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const SizedBox(
+                    errorBuilder: (_, _, _) => const SizedBox(
                       height: 120,
                       child: Center(child: Icon(Icons.broken_image_outlined)),
                     ),

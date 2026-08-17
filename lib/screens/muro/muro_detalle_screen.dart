@@ -101,7 +101,7 @@ class MuroDetalleScreen extends StatelessWidget {
                 width: double.infinity,
                 height: 220,
                 fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                errorBuilder: (_, _, _) => const SizedBox.shrink(),
               ),
             ),
           if (publicacion.imagenUrl.isNotEmpty) const SizedBox(height: 16),

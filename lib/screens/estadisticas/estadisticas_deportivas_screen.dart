@@ -43,7 +43,7 @@ class EstadisticasDeportivasScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: selId,
+                  initialValue: selId,
                   decoration: const InputDecoration(labelText: 'Jugador'),
                   items: [
                     for (final d in jugadores)
@@ -61,7 +61,7 @@ class EstadisticasDeportivasScreen extends StatelessWidget {
                   },
                 ),
                 DropdownButtonFormField<String>(
-                  value: tipo,
+                  initialValue: tipo,
                   decoration: const InputDecoration(labelText: 'Tipo'),
                   items: [
                     for (final t in EstadisticaDeportivaService.tiposComunes)
@@ -70,7 +70,7 @@ class EstadisticasDeportivasScreen extends StatelessWidget {
                   onChanged: (v) => setSt(() => tipo = v ?? tipo),
                 ),
                 DropdownButtonFormField<String>(
-                  value: periodo,
+                  initialValue: periodo,
                   decoration: const InputDecoration(labelText: 'Periodo'),
                   items: [
                     for (final p in EstadisticaDeportivaService.periodos)

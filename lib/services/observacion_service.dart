@@ -36,9 +36,9 @@ class ObservacionService {
       'tipo': tipo,
       'texto': texto,
       'rendimiento': rendimiento,
-      if (entrenamientoId != null) 'entrenamientoId': entrenamientoId,
-      if (partidoId != null) 'partidoId': partidoId,
-      if (referenciaTitulo != null) 'referenciaTitulo': referenciaTitulo,
+      'entrenamientoId': ?entrenamientoId,
+      'partidoId': ?partidoId,
+      'referenciaTitulo': ?referenciaTitulo,
       'creadoEn': FieldValue.serverTimestamp(),
     });
   }

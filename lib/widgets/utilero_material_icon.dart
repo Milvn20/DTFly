@@ -67,7 +67,7 @@ class UtileroMaterialThumbnail extends StatelessWidget {
           height: size,
           fit: BoxFit.cover,
           gaplessPlayback: true,
-          errorBuilder: (_, __, ___) => _iconoRed(url: imagenUrl),
+          errorBuilder: (_, _, _) => _iconoRed(url: imagenUrl),
         ),
       );
     }
@@ -102,7 +102,7 @@ class UtileroMaterialThumbnail extends StatelessWidget {
               ),
             );
           },
-          errorBuilder: (_, __, ___) => _iconoCategoria(),
+          errorBuilder: (_, _, _) => _iconoCategoria(),
         ),
       );
     }
@@ -119,7 +119,7 @@ class UtileroMaterialThumbnail extends StatelessWidget {
       width: size,
       height: size,
       fit: BoxFit.contain,
-      errorBuilder: (_, __, ___) => Icon(
+      errorBuilder: (_, _, _) => Icon(
         cat.icono,
         size: size * 0.85,
         color: cat.color,

@@ -88,7 +88,7 @@ class _JugadorInicioTabState extends State<JugadorInicioTab> {
               Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.72),
+              color: Colors.white.withValues(alpha: 0.72),
               borderRadius: BorderRadius.circular(22),
               boxShadow: const [
                 BoxShadow(

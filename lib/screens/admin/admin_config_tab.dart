@@ -201,7 +201,7 @@ class _AdminConfigTabState extends State<AdminConfigTab> {
                       title: const Text('Permitir registro abierto'),
                       subtitle: const Text('Usuarios pueden registrarse desde la app'),
                       value: cfg.permitirRegistroAbierto,
-                      activeColor: adminAccent,
+                      activeThumbColor: adminAccent,
                       onChanged: (v) => _guardar(cfg.copyWith(permitirRegistroAbierto: v)),
                     ),
                   ],

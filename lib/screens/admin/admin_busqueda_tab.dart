@@ -121,7 +121,7 @@ class _AdminBusquedaTabState extends State<AdminBusquedaTab> {
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: _resultados.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, _) => const Divider(height: 1),
               itemBuilder: (context, i) {
                 final r = _resultados[i];
                 return ListTile(

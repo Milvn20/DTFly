@@ -148,6 +148,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (rol == AppRoles.jugador) {
       await PlantelService.asegurarCampoDeporte(usuarioId);
+
+      if (!mounted) return;
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => RoleMainShell(
+            nombre: nombre,
+            rol: AppRoles.jugador,
+            usuarioEmail: emailGuardado,
+            usuarioId: usuarioId,
+          ),
+        ),
+      );
+
+      return;
     }
 
     // ============================

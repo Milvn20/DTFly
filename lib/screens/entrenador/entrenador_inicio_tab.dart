@@ -508,7 +508,7 @@ class _ResumenEstadoCard extends StatelessWidget {
     return Container(
       height: 82,
       decoration: BoxDecoration(
-        color: color.withOpacity(0.72),
+        color: color.withValues(alpha: 0.72),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -519,7 +519,7 @@ class _ResumenEstadoCard extends StatelessWidget {
             style: TextStyle(
               color: color == DtflyTheme.coachRed
                   ? Colors.white
-                  : color.withOpacity(0.95),
+                  : color.withValues(alpha: 0.95),
               fontWeight: FontWeight.w300,
               fontSize: 34,
             ),

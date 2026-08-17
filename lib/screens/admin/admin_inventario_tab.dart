@@ -162,11 +162,11 @@ class _AdminInventarioTabState extends State<AdminInventarioTab> {
                         adminId: widget.adminId,
                         adminEmail: widget.adminEmail,
                       );
-                      if (mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('$n materiales legacy asignados')),
+                      if (!context.mounted) return;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('$n materiales legacy asignados')),
                         );
-                      }
+                      
                     },
               icon: const Icon(Icons.sync),
               label: const Text('Migrar legacy'),

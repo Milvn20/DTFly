@@ -172,7 +172,7 @@ class UtileroIngresarStockDialog {
               ),
               if (materialId != null &&
                   (fotoBase64 == null || fotoBase64!.trim().isEmpty) &&
-                  (fotoUrl == null || fotoUrl!.trim().isEmpty)) ...[
+                  (fotoUrl == null || fotoUrl.trim().isEmpty)) ...[
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
                   onPressed: () async {

@@ -6,7 +6,6 @@ import 'package:flutter_application_1/core/utilero_material.dart';
 import 'package:flutter_application_1/models/entrenamiento.dart';
 import 'package:flutter_application_1/models/material_inventario.dart';
 import 'package:flutter_application_1/models/utilero_modulos.dart';
-import 'package:flutter_application_1/models/utilero_perfil.dart';
 import 'package:flutter_application_1/screens/utilero/utilero_inventario_anual_screen.dart';
 import 'package:flutter_application_1/services/inventario_service.dart';
 import 'package:flutter_application_1/services/utilero_service.dart';
@@ -239,7 +238,7 @@ class UtileroCalendarioScreen extends StatelessWidget {
                 child: ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: lista.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, i) {
               final e = lista[i];
               final hoy = DateTime.now();
@@ -430,7 +429,7 @@ class UtileroContactoDtScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: lista.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final dt = lista[i];
               return Card(
@@ -616,7 +615,7 @@ class _UtileroSolicitudesScreenState extends State<UtileroSolicitudesScreen> {
                 return ListView.separated(
                   padding: const EdgeInsets.all(16),
                   itemCount: list.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
                   itemBuilder: (context, i) {
                     final s = list[i];
                     return ListTile(
@@ -676,7 +675,7 @@ class UtileroMaterialDanadoScreen extends StatelessWidget {
           return ListView.separated(
             padding: const EdgeInsets.all(16),
             itemCount: danados.length,
-            separatorBuilder: (_, __) => const SizedBox(height: 8),
+            separatorBuilder: (_, _) => const SizedBox(height: 8),
             itemBuilder: (context, i) {
               final m = danados[i];
               final cat = UtileroMaterialCat.resolver('${m.categoria} ${m.nombre}');

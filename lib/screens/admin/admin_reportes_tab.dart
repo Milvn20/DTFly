@@ -40,11 +40,12 @@ class _AdminReportesTabState extends State<AdminReportesTab> {
                   final p = await AdminService.streamTodosPrestamos().first;
                   await AdminService.exportarPrestamosCsv(p);
                 }
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Descarga iniciada')),
+                if (!context.mounted) return;
+
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Descarga iniciada')),
                   );
-                }
+                
               },
               itemBuilder: (_) => const [
                 PopupMenuItem(value: 'usuarios', child: Text('Exportar usuarios (CSV)')),

@@ -675,16 +675,7 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
     );
   }
 
-  Widget _infoTile(String label, String value, {Widget? trailing}) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(label, style: const TextStyle(fontSize: 12, color: DtflyTheme.textMuted)),
-        subtitle: Text(value, style: const TextStyle(fontWeight: FontWeight.w600)),
-        trailing: trailing,
-      ),
-    );
-  }
+
 
   Widget _infoTileCompact(String label, String value) {
     return Padding(

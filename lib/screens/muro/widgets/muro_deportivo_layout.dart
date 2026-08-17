@@ -411,7 +411,7 @@ class _TarjetaPublicacionMockup extends StatelessWidget {
         ? Image.network(
             post.imagenUrl,
             fit: BoxFit.cover,
-            errorBuilder: (_, __, ___) => _PlaceholderImagen(tipo: tipo),
+            errorBuilder: (_, _, _) => _PlaceholderImagen(tipo: tipo),
           )
         : _PlaceholderImagen(tipo: tipo);
 
@@ -830,7 +830,7 @@ class _PanelLateral extends StatelessWidget {
                       g.imagenUrl,
                       fit: BoxFit.cover,
                       height: 70,
-                      errorBuilder: (_, __, ___) => Container(
+                      errorBuilder: (_, _, _) => Container(
                         color: const Color(0xFFE2E8F0),
                         child: const Icon(Icons.image),
                       ),

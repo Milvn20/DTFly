@@ -122,7 +122,7 @@ class EntrenadorHistorialDetalleScreen extends StatelessWidget {
                           );
                         },
                         leading: CircleAvatar(
-                          backgroundColor: _colorEstado(a.estado).withOpacity(0.2),
+                          backgroundColor: _colorEstado(a.estado).withValues(alpha: 0.2),
                           child: Icon(Icons.person, color: _colorEstado(a.estado)),
                         ),
                         title: Text(

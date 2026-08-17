@@ -65,7 +65,7 @@ class _InventarioScreenState extends State<InventarioScreen>
                 decoration: const InputDecoration(labelText: 'Cantidad'),
               ),
               DropdownButtonFormField<String>(
-                value: categoria,
+                initialValue: categoria,
                 decoration: const InputDecoration(labelText: 'Categoría'),
                 items: [
                   for (final c in InventarioService.categoriasSugeridas)
@@ -298,7 +298,7 @@ class _InventarioScreenState extends State<InventarioScreen>
             mainAxisSize: MainAxisSize.min,
             children: [
               DropdownButtonFormField<String>(
-                value: materialId,
+                initialValue: materialId,
                 decoration: const InputDecoration(labelText: 'Material'),
                 items: [
                   for (final m in materiales)
@@ -730,7 +730,7 @@ class _MaterialIcono extends StatelessWidget {
         width: 30,
         height: 30,
         fit: BoxFit.contain,
-        errorBuilder: (_, __, ___) => Icon(v.icono, color: v.colorIcono, size: 26),
+        errorBuilder: (_, _, _) => Icon(v.icono, color: v.colorIcono, size: 26),
       ),
     );
   }

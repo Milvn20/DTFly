@@ -3,11 +3,9 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 
-import 'package:flutter_application_1/core/app_roles.dart';
 import 'firebase_options.dart';
 import 'screens/login_screen.dart';
 import 'screens/entrenador/entrenador_seleccion_categoria_screen.dart';
-import 'screens/role_main_shell.dart';
 import 'theme/dtfly_theme.dart';
 
 /// Vista previa del entrenador sin Firebase:

@@ -459,7 +459,7 @@ class _ObservacionJugadorCard extends StatelessWidget {
             ],
           ),
           DropdownButtonFormField<String>(
-            value: draft.jugadorId,
+            initialValue: draft.jugadorId,
             decoration: const InputDecoration(
               labelText: 'Seleccionar alumno',
               border: OutlineInputBorder(),
@@ -478,7 +478,7 @@ class _ObservacionJugadorCard extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           DropdownButtonFormField<String>(
-            value: draft.rendimiento,
+            initialValue: draft.rendimiento,
             decoration: const InputDecoration(
               labelText: 'Rendimiento',
               border: OutlineInputBorder(),

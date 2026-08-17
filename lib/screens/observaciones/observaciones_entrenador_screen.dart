@@ -54,7 +54,7 @@ class ObservacionesEntrenadorScreen extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 DropdownButtonFormField<String>(
-                  value: jugadorId,
+                  initialValue: jugadorId,
                   decoration: const InputDecoration(labelText: 'Alumno'),
                   items: [
                     for (final d in jugadores)
@@ -73,7 +73,7 @@ class ObservacionesEntrenadorScreen extends StatelessWidget {
                   },
                 ),
                 DropdownButtonFormField<String>(
-                  value: tipo,
+                  initialValue: tipo,
                   decoration: const InputDecoration(labelText: 'Tipo'),
                   items: const [
                     DropdownMenuItem(
@@ -92,7 +92,7 @@ class ObservacionesEntrenadorScreen extends StatelessWidget {
                   onChanged: (v) => setSt(() => tipo = v ?? tipo),
                 ),
                 DropdownButtonFormField<String>(
-                  value: rendimiento,
+                  initialValue: rendimiento,
                   decoration: const InputDecoration(labelText: 'Rendimiento'),
                   items: [
                     for (final r in ObservacionService.rendimientos)

@@ -182,7 +182,7 @@ class UtileroService {
       'apellido': apellido.trim(),
       'correo': correo.trim().toLowerCase(),
       'telefono': telefono.trim(),
-      if (estado != null) 'estado': estado,
+      'estado': ?estado,
       if (turno != null) 'turno': turno.trim(),
       if (horarioInicio != null) 'horario_inicio': horarioInicio.trim(),
       if (horarioFin != null) 'horario_fin': horarioFin.trim(),
@@ -982,7 +982,7 @@ $rows
       'titulo': titulo,
       'items': items,
       'completado': false,
-      if (entrenamientoId != null) 'entrenamiento_id': entrenamientoId,
+      'entrenamiento_id': ?entrenamientoId,
       'creado_en': FieldValue.serverTimestamp(),
     });
     return ref.id;
@@ -1183,11 +1183,9 @@ $rows
     }
     await ref.update({
       'items': items.map((i) => i.toMap()).toList(),
-      if (observacionesGenerales != null)
-        'observaciones_generales': observacionesGenerales,
-      if (responsableVerificacion != null)
-        'responsable_verificacion': responsableVerificacion,
-      if (firmaCoordinador != null) 'firma_coordinador': firmaCoordinador,
+      'observaciones_generales': ?observacionesGenerales,
+      'responsable_verificacion': ?responsableVerificacion,
+      'firma_coordinador': ?firmaCoordinador,
       'updated_at': FieldValue.serverTimestamp(),
     });
   }

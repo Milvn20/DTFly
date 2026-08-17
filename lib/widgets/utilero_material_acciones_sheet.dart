@@ -244,7 +244,7 @@ class UtileroMaterialesCategoriaSheet {
                 child: ListView.separated(
                   shrinkWrap: true,
                   itemCount: materiales.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 6),
+                  separatorBuilder: (_, _) => const SizedBox(height: 6),
                   itemBuilder: (context, i) {
                     final m = materiales[i];
                     return Material(

@@ -133,7 +133,7 @@ class InventarioService {
       'cantidadDisponible': cantidad,
       'cantidadDanada': 0,
       'unidad': unidad,
-      if (imagenUrl != null && imagenUrl!.isNotEmpty) 'imagenUrl': imagenUrl,
+      if (imagenUrl != null && imagenUrl.isNotEmpty) 'imagenUrl': imagenUrl,
       if (imagenBase64 != null && imagenBase64.isNotEmpty)
         'imagenBase64': imagenBase64,
       if (compartidoGeneral) ...{

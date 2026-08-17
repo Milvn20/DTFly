@@ -67,11 +67,11 @@ class EntrenadorSeleccionCategoriaScreen extends StatelessWidget {
                       'assets/images/dtfly_logo_menu.png',
                       height: 88,
                       fit: BoxFit.contain,
-                      errorBuilder: (_, __, ___) => Image.asset(
+                      errorBuilder: (_, _, _) => Image.asset(
                         'assets/images/dtfly_logo.png',
                         height: 72,
                         fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => const Icon(
+                        errorBuilder: (_, _, _) => const Icon(
                           Icons.sports,
                           size: 56,
                           color: DeportesCategoria.botonMaroon,

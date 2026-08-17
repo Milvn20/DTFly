@@ -480,7 +480,7 @@ class _PerfilTab extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               DropdownButtonFormField<String?>(
-                value: deporteId,
+                initialValue: deporteId,
                 decoration: const InputDecoration(
                   labelText: 'Deporte',
                   border: OutlineInputBorder(),
@@ -684,7 +684,7 @@ class _AsistenciasTab extends StatelessWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: lista.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
             final a = lista[i];
             return Card(
@@ -730,7 +730,7 @@ class _ObservacionesTab extends StatelessWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: obs.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
             final o = obs[i];
             return Card(
@@ -793,7 +793,7 @@ class _PrestamosTab extends StatelessWidget {
         return ListView.separated(
           padding: const EdgeInsets.all(16),
           itemCount: relacionados.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 8),
+          separatorBuilder: (_, _) => const SizedBox(height: 8),
           itemBuilder: (context, i) {
             final p = relacionados[i];
             final activo = !p.devuelto;
