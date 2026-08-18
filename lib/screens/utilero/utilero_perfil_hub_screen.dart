@@ -277,14 +277,14 @@ class _UtileroPerfilPanelState extends State<UtileroPerfilPanel> {
                 const SizedBox(height: 8),
                 Text('Accesos rápidos', style: DtflyTheme.panelTitle),
                 const SizedBox(height: 8),
+            
                 _AccesosRapidosPerfil(
                   onCalendario: () => _ir(context, UtileroCalendarioScreen(
                     usuarioId: widget.usuarioId,
                     deporteId: widget.deporteId ?? _deporteId,
-                  )),
-                  onChecklist: () => _ir(context, UtileroChecklistScreen(
-                    usuarioId: widget.usuarioId,
-                  )),
+                  )),  
+                
+
                   onHistorial: () => UtileroSeccionScreen.abrir(
                     context,
                     titulo: 'Historial',
@@ -930,7 +930,6 @@ class _AlertaTile extends StatelessWidget {
 class _AccesosRapidosPerfil extends StatelessWidget {
   const _AccesosRapidosPerfil({
     required this.onCalendario,
-    required this.onChecklist,
     required this.onHistorial,
     required this.onContactoDt,
     required this.onReportes,
@@ -938,7 +937,6 @@ class _AccesosRapidosPerfil extends StatelessWidget {
   });
 
   final VoidCallback onCalendario;
-  final VoidCallback onChecklist;
   final VoidCallback onHistorial;
   final VoidCallback onContactoDt;
   final VoidCallback onReportes;
@@ -948,7 +946,6 @@ class _AccesosRapidosPerfil extends StatelessWidget {
   Widget build(BuildContext context) {
     final items = <({IconData icono, String label, VoidCallback onTap})>[
       (icono: Icons.calendar_month_outlined, label: 'Calendario', onTap: onCalendario),
-      (icono: Icons.checklist_rtl, label: 'Checklist', onTap: onChecklist),
       (icono: Icons.history, label: 'Historial', onTap: onHistorial),
       (icono: Icons.contact_phone_outlined, label: 'Contacto DT', onTap: onContactoDt),
       (icono: Icons.summarize_outlined, label: 'Reportes', onTap: onReportes),

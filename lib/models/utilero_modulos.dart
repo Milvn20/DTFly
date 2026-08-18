@@ -66,46 +66,7 @@ class UtileroContactoDt {
   final String? fotoUrl;
   final String? deporteNombre;
 }
-
-/// Sesión de checklist pre-entrenamiento.
-class ChecklistUtileroSesion {
-  const ChecklistUtileroSesion({
-    required this.id,
-    required this.utileroId,
-    required this.titulo,
-    required this.items,
-    required this.completado,
-    required this.creadoEn,
-    this.entrenamientoId,
-  });
-
-  final String id;
-  final String utileroId;
-  final String titulo;
-  final Map<String, bool> items;
-  final bool completado;
-  final DateTime? creadoEn;
-  final String? entrenamientoId;
-
-  int get totalItems => items.length;
-  int get marcados => items.values.where((v) => v).length;
-
-  static ChecklistUtileroSesion fromDoc(
-    DocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final d = doc.data() ?? {};
-    final raw = d['items'] as Map<String, dynamic>? ?? {};
-    return ChecklistUtileroSesion(
-      id: doc.id,
-      utileroId: d['utilero_id'] as String? ?? '',
-      titulo: d['titulo'] as String? ?? 'Checklist',
-      items: raw.map((k, v) => MapEntry(k, v == true)),
-      completado: d['completado'] as bool? ?? false,
-      creadoEn: (d['creado_en'] as Timestamp?)?.toDate(),
-      entrenamientoId: d['entrenamiento_id'] as String?,
-    );
-  }
-}
+ 
 
 /// Ítem de una sesión de inventario físico.
 class InventarioFisicoItem {

@@ -24,7 +24,7 @@ class _RegistroScreenState extends State<RegistroScreen> {
 
   static const String _pinEntrenador = 'Unab2026';
   static const String _pinUtilero = 'Unab2026';
-  static const String _pinAdmin = 'Unabr2026';
+  static const String _pinAdmin = 'Unab2026';
 
   String? _validarFormulario() {
     final nombre = nombreController.text.trim();

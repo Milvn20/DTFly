@@ -68,15 +68,7 @@ class UtileroHerramientasScreen extends StatelessWidget {
               ),
             ),
           ),
-          _Tile(
-            icon: Icons.checklist_rtl,
-            titulo: 'Checklist pre-entrenamiento',
-            subtitulo: 'Verificar material antes de la sesión',
-            onTap: () => _ir(
-              context,
-              UtileroChecklistScreen(usuarioId: usuarioId),
-            ),
-          ),
+
           _Tile(
             icon: Icons.contact_phone_outlined,
             titulo: 'Contacto DT / profesores',
@@ -273,127 +265,8 @@ class UtileroCalendarioScreen extends StatelessWidget {
   }
 }
 
-class UtileroChecklistScreen extends StatefulWidget {
-  const UtileroChecklistScreen({super.key, required this.usuarioId});
 
-  final String usuarioId;
-
-  @override
-  State<UtileroChecklistScreen> createState() => _UtileroChecklistScreenState();
-}
-
-class _UtileroChecklistScreenState extends State<UtileroChecklistScreen> {
-  String? _checklistId;
-
-  Future<void> _nuevo() async {
-    final id = await UtileroService.crearChecklist(
-      utileroId: widget.usuarioId,
-      titulo: 'Pre-entrenamiento ${DateTime.now().day}/${DateTime.now().month}',
-    );
-    if (mounted) setState(() => _checklistId = id);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Checklist'),
-        backgroundColor: _rojo,
-        foregroundColor: Colors.white,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: _nuevo,
-            tooltip: 'Nuevo checklist',
-          ),
-        ],
-      ),
-      body: StreamBuilder<List<ChecklistUtileroSesion>>(
-        stream: UtileroService.streamChecklists(widget.usuarioId),
-        builder: (context, snap) {
-          final list = snap.data ?? [];
-          final activo = _checklistId != null
-              ? list.where((c) => c.id == _checklistId).firstOrNull
-              : list.where((c) => !c.completado).firstOrNull;
-
-          if (activo == null) {
-            return Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Text(
-                      'Crea un checklist para verificar el material '
-                      'antes del entrenamiento.',
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 16),
-                    FilledButton.icon(
-                      onPressed: _nuevo,
-                      icon: const Icon(Icons.playlist_add),
-                      label: const Text('Iniciar checklist'),
-                      style: FilledButton.styleFrom(backgroundColor: _rojo),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }
-
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              Text(
-                activo.titulo,
-                style: const TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                '${activo.marcados}/${activo.totalItems} completados',
-                style: const TextStyle(color: DtflyTheme.textSecondary),
-              ),
-              const SizedBox(height: 12),
-              ...activo.items.entries.map(
-                (e) => CheckboxListTile(
-                  value: e.value,
-                  onChanged: (v) => UtileroService.actualizarItemChecklist(
-                    checklistId: activo.id,
-                    item: e.key,
-                    marcado: v ?? false,
-                  ),
-                  title: Text(e.key),
-                  activeColor: _rojo,
-                ),
-              ),
-              const SizedBox(height: 12),
-              FilledButton(
-                onPressed: activo.marcados == activo.totalItems
-                    ? () async {
-                        await UtileroService.completarChecklist(activo.id);
-                        if (context.mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Checklist completado')),
-                          );
-                        }
-                      }
-                    : null,
-                style: FilledButton.styleFrom(
-                  backgroundColor: _rojo,
-                  minimumSize: const Size.fromHeight(48),
-                ),
-                child: const Text('Marcar checklist como listo'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
+  
 class UtileroContactoDtScreen extends StatelessWidget {
   const UtileroContactoDtScreen({super.key, this.deporteId});
 
@@ -1047,9 +920,4 @@ class _BotonReporte extends StatelessWidget {
   }
 }
 
-extension _FirstOrNull<E> on Iterable<E> {
-  E? get firstOrNull {
-    final it = iterator;
-    return it.moveNext() ? it.current : null;
-  }
-}
+

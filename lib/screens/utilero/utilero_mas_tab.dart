@@ -214,9 +214,6 @@ class UtileroMasTab extends StatelessWidget {
 
         );
 
-      case 'Checklist pre-entreno':
-
-        _push(context, UtileroChecklistScreen(usuarioId: usuarioId));
 
       case 'Contacto DT':
 

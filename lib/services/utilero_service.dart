@@ -72,7 +72,6 @@ class UtileroService {
   static const String _colActividad = 'actividad_utilero';
   static const String _colNotif = 'notificaciones_utilero';
   static const String _colSolicitudes = 'solicitudes_compra_utilero';
-  static const String _colChecklist = 'checklist_utilero';
   static const String _colInventarioFisico = 'inventario_fisico_utilero';
   static const String _colEmails = 'emails_utilero';
   static const int _umbralStockBajo = 2;
@@ -958,70 +957,8 @@ $rows
     );
   }
 
-  static List<String> itemsChecklistPredefinidos() => const [
-        'Balones inflados',
-        'Conos en bodega',
-        'Petos limpios',
-        'Poleras disponibles',
-        'Botiquín / hielo',
-        'Silbato / cronómetro',
-        'Material de primeros auxilios',
-        'Chalecos / petos de arquero',
-      ];
-
-  static Future<String> crearChecklist({
-    required String utileroId,
-    required String titulo,
-    String? entrenamientoId,
-  }) async {
-    final items = {
-      for (final i in itemsChecklistPredefinidos()) i: false,
-    };
-    final ref = await _db.collection(_colChecklist).add({
-      'utilero_id': utileroId,
-      'titulo': titulo,
-      'items': items,
-      'completado': false,
-      'entrenamiento_id': ?entrenamientoId,
-      'creado_en': FieldValue.serverTimestamp(),
-    });
-    return ref.id;
-  }
-
-  static Stream<List<ChecklistUtileroSesion>> streamChecklists(
-    String utileroId,
-  ) {
-    return _db
-        .collection(_colChecklist)
-        .where('utilero_id', isEqualTo: utileroId)
-        .limit(20)
-        .snapshots()
-        .map((s) {
-      final list = s.docs.map(ChecklistUtileroSesion.fromDoc).toList()
-        ..sort(
-          (a, b) => (b.creadoEn ?? DateTime(2000))
-              .compareTo(a.creadoEn ?? DateTime(2000)),
-        );
-      return list;
-    });
-  }
-
-  static Future<void> actualizarItemChecklist({
-    required String checklistId,
-    required String item,
-    required bool marcado,
-  }) async {
-    await _db.collection(_colChecklist).doc(checklistId).update({
-      'items.$item': marcado,
-    });
-  }
-
-  static Future<void> completarChecklist(String checklistId) async {
-    await _db.collection(_colChecklist).doc(checklistId).update({
-      'completado': true,
-    });
-  }
-
+ 
+      
   static Future<void> registrarInventarioFisico({
     required String utileroId,
     required Map<String, int> conteos,
